@@ -1727,7 +1727,7 @@ function updateUI() {
     box.innerHTML = '<h2 style="font-size:22px">年齢確認</h2><p style="font-weight:800;line-height:1.7;margin:10px 0 14px">このゲームは18歳以上の方を対象としています。<br>年齢が18歳以上であることを確認してください。</p>' +
       '<div style="display:flex;flex-direction:column;gap:8px"><button class="big go" id="ageYes">はい、18歳以上です</button><button class="big" id="ageNo">いいえ</button></div>';
     document.getElementById('ageYes').onclick = () => { try { localStorage.setItem('bonutopia_age18', '1'); } catch (e) {} ov.remove(); };
-    document.getElementById('ageNo').onclick = () => { location.href = 'https://bonkurarin.github.io/bon-museum/'; };
+    document.getElementById('ageNo').onclick = () => { location.href = 'https://bon-creations.github.io/bon-museum/'; };
   };
   const deny = () => {
     box.innerHTML = '<h2 style="font-size:20px">ご利用いただけません</h2><p style="font-weight:800;line-height:1.7;margin:10px 0 14px">このゲームは18歳以上の方のみ遊べます。<br>ご理解ありがとうございます。</p><button class="big" id="ageBack">年齢確認にもどる</button>';
@@ -2420,7 +2420,7 @@ function openData() {
   openSub(h + closeBtn);
 }
 function shareText() {
-  return `BON UTOPIA（無料のパチンコシミュレーター）で、最高${G.rec.bestChain || 0}連チャン！ 大当たり${G.life.wins || 0}回。 夢も、希望も、大当たりも！ #BONUTOPIA\nhttps://bonkurarin.github.io/bon-pachi/`;
+  return `BON UTOPIA（無料のパチンコシミュレーター）で、最高${G.rec.bestChain || 0}連チャン！ 大当たり${G.life.wins || 0}回。 夢も、希望も、大当たりも！ #BONUTOPIA\nhttps://bon-creations.github.io/pachi/`;
 }
 /* 推しボン：大当たり中に出るボン。「おまかせ」なら直近に当たった図柄のボン（なければにじボン） */
 function oshiBon() {
@@ -2497,7 +2497,7 @@ function makeShareCanvas(forceBi) {
     c.font = '900 46px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#ffe14d'; c.textAlign = 'right'; c.fillText(b, 676, y + 4); c.textAlign = 'left';
   });
   c.font = '600 24px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#ffffffb0'; c.fillText('完全無料・課金なし・換金なし', 64, 596);
-  c.font = '600 22px "Zen Maru Gothic", sans-serif'; c.textAlign = 'right'; c.fillText('bonkurarin.github.io/bon-pachi', W - 40, 596); c.textAlign = 'left';
+  c.font = '600 22px "Zen Maru Gothic", sans-serif'; c.textAlign = 'right'; c.fillText('bon-creations.github.io/pachi', W - 40, 596); c.textAlign = 'left';
   { // 推しボンがセリフを言う
     const bi = (typeof forceBi === 'number') ? forceBi : oshiBon(), n = G.rec.bestChain || 0, col = bi === 6 ? '#9b6bff' : BON_C[bi][2];
     let im = bi === 6 ? NIJI_CHIBI : (artRaw(bi, 's', (G.life.wins || 0) % 4) || symImgs[bi]);
