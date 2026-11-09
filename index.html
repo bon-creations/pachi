@@ -149,6 +149,7 @@
     <div id="menuBtns"></div>
     <div class="rec" id="menuRec"></div>
     <div class="free">完全無料・課金なし・換金なし。ボンコインは1時間に1枚、自動で回復するよ。</div>
+    <div class="free" style="margin-top:6px;font-size:12px;opacity:.85;letter-spacing:.04em">© BON CREATIONS</div>
   </div></div>
   <div id="empty" class="ov"><div class="box">
     <h2 style="font-size:22px">玉がなくなったよ</h2>
@@ -3216,7 +3217,7 @@ const BF_TRACKS = [
   { id: 17, src: 'spin2', title: "雨のあとに虹を出すのはな、勝負で疲れた者に「おつかれさま」と言いたいからなのだ", cond: { k: 'spins', n: 20 } },
   { id: 18, src: 'spin2', title: "むっ！ 観察中なのだぞ！ …そなたも観察されておるのだ", cond: { k: 'spins', n: 40 } },
   { id: 19, src: 'theme:6', title: "虹は七色と言うがな、国によっては六色や二色なのだそうだ。我輩はあえて七色でいくのだぞ。盛る主義でな！", cond: { k: 'spins', n: 50 } },
-  { id: 20, src: 'theme:2', title: "うむ！ 柿なのだぞ！ なぜか大好きなのだ！ 理由は……作者が好きだからなのだぞ！", cond: { k: 'wins', n: 2 } },
+  { id: 20, src: 'theme:2', title: "うむ！ 柿なのだぞ！ なぜか大好きなのだ！ 理由は……さくしゃボンが好きだからなのだぞ！", cond: { k: 'wins', n: 2 } },
   { id: 21, src: 'theme:4', title: "寒い日は、みんなで身を寄せ合うのがよいのだ。我輩は寒くないぞ。少しも寒くないのだ", cond: { k: 'plays', n: 2 } },
   { id: 22, src: 'theme:2', title: "ひょえボンは、こっそり縫い物をしておる。縫い目は恐ろしいほど真っ直ぐなのだぞ", cond: { k: 'spins', n: 80 } },
   { id: 23, src: 'theme:5', title: "てれボンの詩を、玉の転がる音の合間に聞いた気がするのだ。……良い詩であった", cond: { k: 'wins', n: 4 } },
@@ -3244,16 +3245,46 @@ const BF_TRACKS = [
   { id: 45, src: 'theme:6', title: "予告が出ても、外れる日はあるのだ。予告とは、期待を盛る演出なのである。盛るのは、我輩の得意分野であるがな！", cond: { k: 'wins', n: 22 } },
   { id: 46, src: 'spin2', title: "景品交換所では、たまった玉をコインやガチャに替えられるのだ。現金には替えられぬ、安心の仕組みである", cond: { k: 'plays', n: 16 } },
   { id: 47, src: 'spin2', title: "「ボンでもわかるパチンコ」は、そなたの味方である。わからぬときは、設定から開くがよいぞ", cond: { k: 'spins', n: 330 } },
-  { id: 48, src: 'theme:2', title: "作者の好物は柿らしいのだ。それゆえ、我輩も柿が好きなのだぞ。偶然ではないのだぞ", cond: { k: 'kaku', n: 2 } },
+  { id: 48, src: 'theme:2', title: "さくしゃボンの好物は柿らしいのだ。それゆえ、我輩も柿が好きなのだぞ。偶然ではないのだぞ", cond: { k: 'kaku', n: 2 } },
   { id: 49, src: 'special', title: "データカウンターには、連チャン数や大当たりの履歴が出るのだ。自慢したくなったら、結果を画像でシェアするがよい", cond: { k: 'spins', n: 380 } },
   { id: 50, src: 'premium', title: "光が強くてまぶしいときは、設定で光を弱められるのだ。我輩の輝きは、弱めてもまぶしいがな", cond: { k: 'seven', n: 2 } },
   { id: 51, src: 'theme:6', title: "我輩が登場する予告はな、七色の中でも別格なのだ。出た日は、その日いちばんの幸運と思うがよい", cond: { k: 'premium', n: 2 } },
   { id: 52, src: 'theme:6', title: "虹は消えるからこそ、うつくしいのだぞ。……だが、大当たりは消えずに続くとなおうつくしい", cond: { k: 'spins', n: 500 } },
   { id: 53, src: 'fever', title: '大当たりのテーマは「BONBON FEVER!!」なのだ！ 我輩のゲームの、みんなの大当たりである！ うむ！', cond: { k: 'wins', n: 3 } },
+  { id: 54, src: 'spin3', title: "「UTOPIA TONIGHT」は、夜更けに回したくなる曲なのだ。……昼に聴いても、うむ、悪くないぞ", cond: { k: 'plays', n: 4 } },
+  { id: 55, src: 'star', title: "「UTOPIA SPIN☆☆☆」は大当たりの曲である！ 星が三つ並んだなら、我輩の機嫌も三割増しなのだぞ", cond: { k: 'wins', n: 6 } },
+  { id: 56, src: 'theme:0', title: "おこボンは、外れが続くと「まだよ！」と言うのだ。その「まだ」が、実に頼もしいのだぞ", cond: { k: 'spins', n: 90 } },
+  { id: 57, src: 'theme:1', title: "にこボンは、大当たりの前にそわそわする。我輩は先に気づいておるが、黙っておるのだ", cond: { k: 'wins', n: 9 } },
+  { id: 58, src: 'theme:2', title: "ひょえボンの新しい絵が増えたのだ。驚いた顔も、泣き顔も、箱を運ぶ顔もある。どれも愛らしいのだぞ", cond: { k: 'plays', n: 7 } },
+  { id: 59, src: 'theme:3', title: "もぐボンは「勝っても負けても、おにぎりはおいしいよ〜」と言うのだ。至言である", cond: { k: 'spins', n: 120 } },
+  { id: 60, src: 'theme:4', title: "ねむボンの寝言は「あたり……むにゃ」だそうだ。当たったかどうかは、本人も知らぬのだ", cond: { k: 'spins', n: 160 } },
+  { id: 61, src: 'theme:5', title: "てれボンは、大当たりのあとに小声で「おめでとうございます」と言うのだ。聞こえた者は、幸運であるぞ", cond: { k: 'wins', n: 11 } },
+  { id: 62, src: 'spin2', title: "台の枠は、和風、アンデス、アジア、アフリカ、中東、インド、メキシコ、ケルトと選べるのだ。旅をしている気分になるぞ", cond: { k: 'plays', n: 9 } },
+  { id: 63, src: 'spin2', title: "ボンカラーの枠を選ぶとな、釘も玉も液晶も、その子の色にそろうのだ。我輩の虹色枠は、言うまでもなく華やかであるぞ", cond: { k: 'spins', n: 190 } },
+  { id: 64, src: 'spin2', title: "推しボンを選ぶと、台の横に立ち絵が出るのだ。ポーズが変わるのは一分に一回。気長に待つのも、また良いものだ", cond: { k: 'plays', n: 11 } },
+  { id: 65, src: 'spin2', title: "パソコンの横長画面では、キーボードでも遊べるのだ。スペースで発射、Aで連続発射。覚えておくがよいぞ", cond: { k: 'spins', n: 220 } },
+  { id: 66, src: 'spin2', title: "Zキーで液晶が大きくなるのだ。我輩の晴れ姿を、存分に拝むがよい。うむ！", cond: { k: 'spins', n: 260 } },
+  { id: 67, src: 'spin2', title: "ChromeやEdgeなら、このゲームをアプリとして入れられるのだ。我輩を、いつでも呼び出せるのだぞ", cond: { k: 'plays', n: 13 } },
+  { id: 68, src: 'spin2', title: "玉の飛びが強くなったのだ。ハンドルを弱めに回しても、盤面の上まで届くのだぞ。我輩のおかげ……ではないがな", cond: { k: 'spins', n: 300 } },
+  { id: 69, src: 'special', title: "リーチがかかったら、まず深呼吸なのだ。我輩は、いつも深呼吸してから虹を出すのだぞ", cond: { k: 'spins', n: 140 } },
+  { id: 70, src: 'special', title: "スペシャルリーチは、期待度が高いのだ。……だが、外れても怒るでないぞ。我輩も、ときどき外すのだ", cond: { k: 'wins', n: 16 } },
+  { id: 71, src: 'bonus', title: "大当たり中は、玉を無駄にせぬようにな。右打ちを間違えると、玉が泣くのだぞ", cond: { k: 'wins', n: 5 } },
+  { id: 72, src: 'bonus', title: "ラウンドが進むほど、ボンたちの声が弾むのだ。最後の「おめでとう！」は、全員で言うのだぞ", cond: { k: 'wins', n: 13 } },
+  { id: 73, src: 'bonus', title: "大当たりが終わったら、結果を画像でシェアできるのだ。我輩のセリフも付くゆえ、見せびらかすがよい", cond: { k: 'wins', n: 17 } },
+  { id: 74, src: 'premium', title: "七色がそろった日は、赤飯を炊くのだ。……もぐボンが、すでに炊いておった。さすがである", cond: { k: 'seven', n: 3 } },
+  { id: 75, src: 'premium', title: "プレミアムの大当たりは、我輩の秘蔵の演出なのだ。そなたに見せられて、我輩は満足であるぞ", cond: { k: 'premium', n: 3 } },
+  { id: 76, src: 'fever', title: "「BONBON FEVER!!」は、みんなの大当たりテーマなのだ。選べる曲が二つになって、迷う楽しみも増えたであろう？", cond: { k: 'wins', n: 22 } },
+  { id: 77, src: 'theme:6', title: "ボンコインは、一時間に一枚、自動で戻るのだ。焦らずとも、また遊べるのだぞ。我輩は気が長いのだ", cond: { k: 'plays', n: 18 } },
+  { id: 78, src: 'spin2', title: "データのバックアップは、コードで保存して復元できるのだ。大事な記録は、ときどき写しておくがよいぞ", cond: { k: 'plays', n: 20 } },
+  { id: 79, src: 'spin2', title: "ミッションは毎日九種類あるのだ。全部こなしたらボーナスなのだぞ。……我輩の分は、ないがな", cond: { k: 'plays', n: 22 } },
+  { id: 80, src: 'spin2', title: "ボンクイズは、キャラのこと、パチンコのこと、ゲームのこと、六種類あるのだ。シルエットは、我輩でも迷うのだぞ", cond: { k: 'plays', n: 24 } },
+  { id: 81, src: 'theme:6', title: "さくしゃボンは、ボンたちの新しい絵が届くたびに、大喜びするのだ。我輩の絵が来る日も、近いやもしれぬな", cond: { k: 'spins', n: 400 } },
+  { id: 82, src: 'theme:6', title: "七人のボンがそろって、はじめて「ボンちゃんの世界」なのだ。そなたも、その一員であるぞ。うむ！", cond: { k: 'wins', n: 30 } },
+  { id: 83, src: 'spin2', title: "ここまで聞いてくれたそなたに、礼を言うのだ。……我輩のつぶやきは、まだまだ続くのだぞ", cond: { k: 'spins', n: 600 } },
 ];
 let bfLogoN = 0;
 const bfLogo = (h) => { const u = 'bfg' + (bfLogoN++); return `<svg viewBox="0 0 150 36" height="${h}" role="img" aria-label="Bontify" style="display:block"><defs><linearGradient id="${u}" x1="0" x2="1"><stop offset="0" stop-color="#ff6b6b"/><stop offset=".25" stop-color="#ffd86b"/><stop offset=".5" stop-color="#69db7c"/><stop offset=".75" stop-color="#4dabf7"/><stop offset="1" stop-color="#b197fc"/></linearGradient></defs><circle cx="18" cy="18" r="17" fill="#1ed760"/><g fill="none" stroke-width="2.6" stroke-linecap="round"><path d="M6.5 25A11.5 11.5 0 0 1 29.5 25" stroke="#ff4d4d"/><path d="M10 25A8 8 0 0 1 26 25" stroke="#ffd43b"/><path d="M13.5 25A4.5 4.5 0 0 1 22.5 25" stroke="#fff"/></g><text x="42" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="23" fill="url(#${u})">Bontify</text></svg>`; };
-const BF_SRC_NAME = { fever: 'BONBON FEVER!!', spin2: 'UTOPIA SPIN!!!', spin3: 'UTOPIA TONIGHT', special: 'SPECIAL REACH', bonus: 'BONUS', premium: 'SPECIAL BONUS' };
+const BF_SRC_NAME = { fever: 'BONBON FEVER!!', spin2: 'UTOPIA SPIN!!!', spin3: 'UTOPIA TONIGHT', star: 'UTOPIA SPIN☆☆☆', special: 'SPECIAL REACH', bonus: 'BONUS', premium: 'SPECIAL BONUS' };
 const BF_UNIT = { spins: '回転', wins: '回の大当たり', plays: '回の遊技', kaku: '回の確変', seven: '回の7揃い', premium: '回のプレミアム' };
 const bfSrcName = s => BF_SRC_NAME[s] || (s.indexOf('theme:') === 0 ? SYMBOL_NAMES[+s.slice(6)] + 'のテーマ' : s);
 function bfStat(k) {
