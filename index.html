@@ -262,8 +262,8 @@ const CONFIG = {
   gravity: 1400,           // 重力 px/s^2
   ballR: 5,                // 玉の半径
   nailR: 2.6,              // 釘の半径
-  nailRestitution: 0.45,   // 釘の反発
-  wallRestitution: 0.35,   // 壁の反発
+  nailRestitution: 0.42,   // 釘の反発
+  wallRestitution: 0.3,    // 壁の反発
   ballRestitution: 0.55,   // 玉同士の反発
   nailJitter: 0.35,        // 釘衝突時のランダム度合い
   maxSpeed: 2500,
@@ -407,7 +407,9 @@ const DIR_CFG = {
   yokokuCount: { win: [15, 40, 45], lose: [55, 35, 10] }, // 予告0/1/2個の重み
 };
 const BONUS = { rounds: 10, perRound: 10, perBall: 15, roundTimeout: 18, gap: 1.4, introTime: 7.2, premIntroTime: 12.5 };
-const PRIZE = { hes: 3, den: 1 };   // 賞球（入賞したときに戻る玉）
+const PRIZE = { hes: 3, den: 1, sode: 5 };   // 賞球。ヘソ3・電チュー1・大入賞口15（BONUS.perBall）・袖入賞口5
+const SODE = [{ x: 82, y: 610, w: 22, h: 12 }, { x: 366, y: 612, w: 22, h: 12 }];   // 袖入賞口（一般入賞口）
+let chuckT = 0, attAnim = 0, lampT = 0, lastDraw = performance.now();   // 賞球（入賞したときに戻る玉）
 const DEN = { x: 410, y: 490, w: 36, h: 12 };   // 電チュー（右ヘソ）
 let denT = 0;
 const denOpen = () => supportOn() && denT % 1.5 < 1.1;
@@ -613,6 +615,9 @@ function planDirection(res) {
   // 停止タイミング（図柄ごとに別々）
   if (P.reach) { const L = 3.2 + rnd() * 0.4, R = L + 0.9; P.R = R; P.M = R + REACHES[P.reach].dur; P.stops = [L, P.M, R]; }
   else { const a = 3.0 + rnd() * 0.3; P.stops = [a, a + 1.0 + rnd() * 0.3, a + 2.0 + rnd() * 0.4]; P.M = P.stops[2]; }
+  P.gi = +wpick(['0', '1', '2'], k => (win ? [55, 28, 17] : [88, 9, 3])[+k]); P.giAt = [1.0, 2.1];   // 擬似連（回数が多いほど期待）
+  P.btn = (P.reach && !P.premium && rnd() < 0.55) ? { at: P.R + 0.7, done: false } : null;   // ボタン演出
+  lcd.btnWait = false; try { hidePush(); } catch (e) {}
   // 予告
   const cnt = wpick(['0', '1', '2'], k => DIR_CFG.yokokuCount[win ? 'win' : 'lose'][+k]);
   const yk = Object.keys(YOKOKU).filter(k => custom.yk[k] !== false), used = {};   // OFFにした予告は出さない（当たりやすさは変わらない）
@@ -626,7 +631,7 @@ function planDirection(res) {
 
 /* ---------- 演出の状態 ---------- */
 const lcd = { phase: 'idle', t: 0, res: null, plan: null, stopped: [false, false, false], fired: {}, skipped: false };
-const bonus = { sym: 0, round: 0, count: 0, gained: 0, open: false, timer: 0, gapT: 0, premium: false };
+const bonus = { v: false, sym: 0, round: 0, count: 0, gained: 0, open: false, timer: 0, gapT: 0, premium: false };
 const inBonus = () => lcd.phase === 'rounds';
 const once = (k, fn) => { if (!lcd.fired[k]) { lcd.fired[k] = 1; fn(); } };
 function startNextSpin() {
@@ -646,7 +651,7 @@ function pickHoldColor(win) {
   return 'blue';
 }
 function onStart() {
-  sfxChucker();
+  sfxChucker(); chuckT = 0.3;
   if (state.queue.length < LOTTERY.holdMax) {
     const res = drawLottery(); res.hc = pickHoldColor(res.win); res.hshow = res.hc === 'blue';
     if (res.hc !== 'blue') setTimeout(() => { res.hshow = true; if (res.hc === 'rainbow') sfxChance(); else sfxYk(); }, 650);   // 最初は青で入り、少しして色が変わる
@@ -657,6 +662,7 @@ function onStart() {
 function startRounds(round, gained, premium, sym) {
   if (typeof sym === 'number') bonus.sym = sym; MODE.k = 'bonus'; MODE.left = 0;
   lcd.phase = 'rounds'; lcd.t = 0; bonus.round = round || 1; bonus.gained = gained || 0; bonus.premium = !!premium;
+  bonus.v = (round || 1) >= BONUS.rounds;   // 最終ラウンドから再開したときは、Vは入ったことにする
   bonus.open = false; bonus.gapT = 0; openRound(); bgmPlay(themeName());
   toast('右打ち！ 「右打ち」ボタンでハンドルを右に固定しよう');
 }
@@ -667,16 +673,20 @@ function playYokokuSe(id) {
   if (t === 0) sfxYk(); else if (t === 1 || t === 2) sfxChance(); else sfxHot();
 }
 function skipEffect() {
+  if (lcd.btnWait) { pushDone(true); return; }
   if (lcd.phase === 'spin') { lcd.skipped = true; lcd.t = Math.max(lcd.t, lcd.plan.M); bgmStop(); }
   else if (lcd.phase === 'intro') lcd.t = Math.max(lcd.t, lcd.plan.premium ? BONUS.premIntroTime : BONUS.introTime);
   else if (lcd.phase === 'result' || lcd.phase === 'finish') lcd.t = 99;
 }
 function updateLCD(dt) {
   const ph = lcd.phase; if (ph === 'idle') return;
+  if (ph === 'spin' && lcd.btnWait) { lcd.btnT += dt; if (lcd.btnT > 3.2 || autoFire || lcd.skipped) pushDone(false); return; }
   lcd.t += (ph === 'spin' || ph === 'result') && supportOn() ? dt * 2.2 : dt; const t = lcd.t;
   if (ph === 'spin') {
     const P = lcd.plan;
     P.yokoku.forEach((y, i) => { if (t >= y.at) once('yk' + i, () => { if (!lcd.skipped) playYokokuSe(y.id); dm('yk'); dexMark('yk', y.id); if (y.id === 'cutin') bonSeen(P.chars[0]); if (y.id === 'niji-appear') bonSeen(6); if (y.id === 'seven-bons') for (let b = 0; b < 7; b++) bonSeen(b); }); });
+    for (let k = 0; k < (P.gi | 0); k++) if (t >= P.giAt[k]) once('gi' + k, () => { if (!lcd.skipped) sfxGi(k); });
+    if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
     P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i); } });
     if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true)) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); });
     if (lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2]) {
@@ -711,7 +721,7 @@ function updateLCD(dt) {
     if (t >= 4.5) { lcd.phase = 'idle'; lcd.res = null; lcd.plan = null; bonus.gained = 0; startNextSpin(); }
   }
 }
-function catchBall() { bonus.count++; bonus.gained += BONUS.perBall; state.have += BONUS.perBall; sfxCatch(); }
+function catchBall() { bonus.count++; bonus.gained += BONUS.perBall; state.have += BONUS.perBall; sfxCatch(); sfxJara(); }
 
 /* ---------- 描画ヘルパー ---------- */
 const RB = ['#ff4d4d', '#ff9f1c', '#ffe14d', '#3ddc84', '#3a8dff', '#7a5cff', '#d05cff'];
@@ -857,7 +867,9 @@ function drawSpinScreen(c) {
     const bx = lx + 14 + i * 74, by = ly + 46, spinning = spin && !lcd.stopped[i];
     c.fillStyle = 'rgba(255,255,255,.13)'; roundRect(c, bx, by, 64, 78, 8); c.fill();
     let idx = -1;
-    if (spinning) { const mid = i === 1 && reach; const sp = mid ? (t - P.R < REACHES[P.reach].dur * 0.55 ? 10 : 4.5) : 15; idx = Math.floor(t * sp + i * 3) % SYM_DEFS.length; }
+    const giK = (spin && P && P.gi) ? [0, 1].findIndex(k => k < P.gi && t >= P.giAt[k] && t < P.giAt[k] + 0.8) : -1;
+    if (spinning && giK >= 0) idx = Math.floor(P.giAt[giK] * 15 + i * 3) % SYM_DEFS.length;
+    else if (spinning) { const mid = i === 1 && reach; const sp = mid ? (t - P.R < REACHES[P.reach].dur * 0.55 ? 10 : 4.5) : 15; idx = Math.floor(t * sp + i * 3) % SYM_DEFS.length; }
     else if (P) idx = P.sym[i];
     if (idx >= 0) { const off = spinning ? Math.sin(t * 40 + i) * 3 : 0; drawSym(c, idx, bx, by + off, 64, 78); }
     else { c.fillStyle = 'rgba(255,216,107,.3)'; c.font = 'bold 30px "Zen Maru Gothic", sans-serif'; c.fillText('?', bx + 32, by + 40); }
@@ -865,8 +877,12 @@ function drawSpinScreen(c) {
   }
   // 予告
   if (spin && P) P.yokoku.forEach(y => { const tr = t - y.at; if (tr >= 0 && tr <= YOKOKU[y.id].dur) { c.save(); drawYokoku(c, y, tr, YOKOKU[y.id].dur, P); c.restore(); { const fx = fxDesign(); if (fx !== 'none') drawYkFx(c, fx, tr, YOKOKU[y.id].dur); }; } });
+  // 擬似連
+  if (spin && P && P.gi && !lcd.skipped) for (let k = 0; k < P.gi; k++) { const tr = t - P.giAt[k]; if (tr >= 0 && tr < 0.8) { c.save(); c.globalAlpha = 0.55 * (1 - tr / 0.8); c.fillStyle = k ? '#ff4d6d' : '#ffd24d'; c.fillRect(lx, ly, lw, lh); c.globalAlpha = 1; outText(c, `擬似連 ${k + 2}`, lx + lw / 2, ly + lh / 2 - 10 + Math.sin(tr * 30) * 2, 30 + (1 - tr / 0.8) * 6, k ? '#fff2a0' : '#fff'); c.restore(); } }
   // リーチ
   if (reach && !lcd.skipped) { c.save(); drawReachScene(c, P.reach, t - P.R, P); c.restore(); const rt = REACH_TINT[custom.reach] && REACH_TINT[custom.reach][1]; if (rt) { c.fillStyle = `rgba(${rt},.24)`; c.fillRect(lx, ly, lw, lh); } }
+  // 信頼度ランク（いま出ている予告・リーチの強さ。弱★ → 激アツ★★★★）
+  if (spin && P && !lcd.skipped) { let rk = -1, lb = '予告'; P.yokoku.forEach(y => { if (t >= y.at && t - y.at <= YOKOKU[y.id].dur) rk = Math.max(rk, YOKOKU[y.id].tier); }); if (reach) { rk = Math.max(rk, Math.min(3, REACHES[P.reach].tier)); lb = 'リーチ'; } if (rk >= 0) drawRank(c, rk, lb, lx + 6, ly + 31); }
   // タイトル
   let title = 'スタートチャッカーに入れてね', col = '#b9a8d8', sz = 13;
   if (spin) { title = '変動中…'; col = '#ffd86b'; sz = 15; }
@@ -917,6 +933,7 @@ function drawBonusScreen(c) {
   outText(c, `残り ${BONUS.rounds - bonus.round} ラウンド`, mx, ly + 82, 13, '#fff');
   outText(c, `入賞 ${bonus.count}/${BONUS.perRound}`, lx + 52, ly + 112, 13, bonus.open ? '#8fffa8' : '#ccc');
   outText(c, `獲得 ${bonus.gained}玉`, lx + lw - 52, ly + 112, 14, '#ffd86b');
+  if (bonus.round >= BONUS.rounds && KAKU_SYMS.has(bonus.sym)) outText(c, bonus.v ? 'V入賞！ 確変ゲット！' : '▶ 右のVに入れると確変！', mx, ly + 140, 15, bonus.v ? '#8fffa8' : '#ffd86b');
 }
 /* 推しボンの飾り：台の横（等身の全身イラスト＋デフォルメ）と、液晶の隅（デフォルメ）。予告が出るたびにポーズが変わる */
 function oshiDecoBon() {
@@ -977,14 +994,46 @@ function drawLCD(c) {
 }
 /* アタッカー（大当たり中のみ開く）と、大当たり導入の全画面演出 */
 function drawAttacker() {
-  if (!attOpen()) {   // 閉じている間は斜めのフタ
-    const c = ctx; c.save(); c.scale(S, S); c.lineCap = 'round';
-    c.strokeStyle = '#7a5410'; c.lineWidth = 5; c.beginPath(); c.moveTo(ATT.x + ATT.w, ATT.y - 2); c.lineTo(ATT.x - 8, ATT.y + 16); c.stroke();
-    c.strokeStyle = '#ffeaa0'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(ATT.x + ATT.w, ATT.y - 3); c.lineTo(ATT.x - 8, ATT.y + 15); c.stroke(); c.restore(); return;
+  const now = performance.now(), dtA = Math.min(0.1, (now - lastDraw) / 1000); lastDraw = now;
+  const want = attOpen() ? 1 : 0; attAnim += (want - attAnim) * Math.min(1, dtA * 12); if (Math.abs(attAnim - want) < 0.02) attAnim = want;
+  const c = ctx; c.save(); c.scale(S, S); c.lineCap = 'round';
+  if (attAnim < 1) {   // フタ：閉じている間は斜め。開くときは持ち上がる
+    const k = attAnim, ex = ATT.x - 8 + k * 10, ey = ATT.y + 16 - k * 34;
+    c.strokeStyle = '#7a5410'; c.lineWidth = 5; c.beginPath(); c.moveTo(ATT.x + ATT.w, ATT.y - 2); c.lineTo(ex, ey); c.stroke();
+    c.strokeStyle = '#ffeaa0'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(ATT.x + ATT.w, ATT.y - 3); c.lineTo(ex, ey - 1); c.stroke();
   }
-  const c = ctx; c.save(); c.scale(S, S); const pl = 0.6 + 0.4 * Math.sin(performance.now() / 90);
-  c.fillStyle = `rgba(255,216,107,${0.5 + pl * 0.4})`; c.shadowColor = '#ffd86b'; c.shadowBlur = 14; roundRect(c, ATT.x, ATT.y, ATT.w, ATT.h, 6); c.fill(); c.shadowBlur = 0;
-  c.fillStyle = '#3a1f00'; c.font = 'bold 12px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('▼ OPEN ▼', ATT.x + ATT.w / 2, ATT.y + ATT.h / 2); c.restore();
+  if (attAnim > 0) {
+    const pl = 0.6 + 0.4 * Math.sin(now / 90); c.globalAlpha = attAnim;
+    c.fillStyle = `rgba(255,216,107,${0.5 + pl * 0.4})`; c.shadowColor = '#ffd86b'; c.shadowBlur = 14; roundRect(c, ATT.x, ATT.y, ATT.w, ATT.h, 6); c.fill(); c.shadowBlur = 0;
+    c.fillStyle = '#3a1f00'; c.font = 'bold 12px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('▼ OPEN ▼', ATT.x + ATT.w / 2 - (bonus.round >= BONUS.rounds && KAKU_SYMS.has(bonus.sym) ? 10 : 0), ATT.y + ATT.h / 2);
+    if (bonus.round >= BONUS.rounds && KAKU_SYMS.has(bonus.sym)) {   // 最終ラウンドのV（ここに入ると確変）
+      c.fillStyle = bonus.v ? 'rgba(80,220,120,.9)' : `rgba(255,70,120,${0.6 + pl * 0.35})`; roundRect(c, ATT.x + ATT.w - 24, ATT.y, 24, ATT.h, 5); c.fill();
+      c.fillStyle = '#fff'; c.font = 'bold 12px "Zen Maru Gothic", sans-serif'; c.fillText('V', ATT.x + ATT.w - 12, ATT.y + ATT.h / 2 + 0.5);
+    }
+    c.globalAlpha = 1;
+  }
+  if (chuckT > 0) {   // スタートチャッカーの羽が開く
+    chuckT = Math.max(0, chuckT - dtA); const p = Math.sin(Math.PI * (1 - chuckT / 0.3)), cx = CHUCKER.x, cw = CHUCKER.w, cy = CHUCKER.y;
+    c.strokeStyle = '#ffe9a8'; c.lineWidth = 3; c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx - 9 * p, cy - 8 * p); c.moveTo(cx + cw, cy); c.lineTo(cx + cw + 9 * p, cy - 8 * p); c.stroke();
+  }
+  c.restore();
+}
+function drawLamps() {   // 盤面の電飾：液晶のまわりのランプ
+  const x0 = LCDP.x - 8, y0 = LCDP.y - 8, w0 = LCDP.w + 16, h0 = LCDP.h + 16, per = 2 * (w0 + h0), n = Math.floor(per / 13), now = performance.now();
+  let mode = 0;   // 0 通常 1 リーチ 2 大当たり 3 確変・時短
+  if (lcd.phase === 'intro' || lcd.phase === 'rounds' || lcd.phase === 'finish') mode = 2;
+  else if (lcd.phase === 'spin' && lcd.plan && lcd.plan.reach && lcd.t >= lcd.plan.R) mode = 1;
+  else if (supportOn()) mode = 3;
+  const spd = [0.0016, 0.006, 0.01, 0.003][mode], c = ctx; c.save(); c.scale(S, S);
+  for (let i = 0; i < n; i++) {
+    let d = i / n * per, px, py;
+    if (d < w0) { px = x0 + d; py = y0; } else if (d < w0 + h0) { px = x0 + w0; py = y0 + d - w0; } else if (d < 2 * w0 + h0) { px = x0 + w0 - (d - w0 - h0); py = y0 + h0; } else { px = x0; py = y0 + h0 - (d - 2 * w0 - h0); }
+    const ph = calm ? 0.3 : ((i / n) * 6 - now * spd) % 6, on = calm ? 0.35 : Math.max(0, Math.sin(ph * 2.1)) ;
+    const hue = mode === 2 ? (i * 14 + now * 0.3) % 360 : mode === 1 ? (i % 2 ? 50 : 350) : mode === 3 ? 330 : (i * 9 + now * 0.02) % 360;
+    c.globalAlpha = 0.25 + 0.75 * on; c.fillStyle = `hsl(${hue},95%,62%)`; if (!calm && on > 0.6) { c.shadowColor = c.fillStyle; c.shadowBlur = 6; } else c.shadowBlur = 0;
+    c.beginPath(); c.arc(px, py, 2.1, 0, 7); c.fill();
+  }
+  c.restore();
 }
 function drawIntro() {
   if (lcd.phase !== 'intro') return;
@@ -1094,6 +1143,35 @@ const BGMS = {
 const PROC_GAIN = { bonus: 3.6, premium: 3.6, special: 4.4 };   // 測定：曲（約-24dBFS）にそろえる倍率
 const bgm = { timer: null, name: null, step: 0 };
 const mhz = m => 440 * Math.pow(2, (m - 69) / 12);
+let jaraT = 0;
+function sfxJara() { const n = performance.now(); if (n - jaraT < 55) return; jaraT = n; noise(0.05, 0.1, 5500); tone(2200 + Math.random() * 900, 0.03, 'square', 0.05); }   // 玉が出る「ジャラッ」
+function sfxGi(k) { tone(300, 0.25, 'sawtooth', 0.22, 900); noise(0.2, 0.18, 1800); setTimeout(() => { tone(1200 + k * 300, 0.18, 'square', 0.2); }, 220); }   // 擬似連
+function sfxPushPrompt() { tone(880, 0.1, 'square', 0.2); tone(1320, 0.1, 'square', 0.2, 0, 0.1); }
+function sfxPush() { tone(180, 0.18, 'sawtooth', 0.35, 60); noise(0.25, 0.25, 700); tone(1568, 0.25, 'square', 0.2, 0, 0.12); }
+const RANKS = [['弱', '★', '#9ad0ff'], ['中', '★★', '#7dffb0'], ['強', '★★★', '#ffd24d'], ['激アツ', '★★★★', '#ff5a7a']];
+function drawRank(c, tier, label, x, y) {
+  const r = RANKS[Math.max(0, Math.min(3, tier))], tx = `${label} ${r[1]} ${r[0]}`;
+  c.save(); c.font = 'bold 10px "Zen Maru Gothic", sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+  const w = c.measureText(tx).width + 12; c.fillStyle = 'rgba(10,6,30,.72)'; roundRect(c, x, y - 7, w, 14, 7); c.fill();
+  c.strokeStyle = r[2]; c.lineWidth = 1.2; roundRect(c, x, y - 7, w, 14, 7); c.stroke(); c.fillStyle = r[2]; c.fillText(tx, x + 6, y); c.restore();
+}
+/* ボタン演出：リーチ中に「PUSH!」が出る（押しても押さなくても結果は同じ。押すと派手になるだけ） */
+let pushEl = null;
+function showPush() {
+  if (!pushEl) {
+    pushEl = document.createElement('button'); pushEl.id = 'pushBtn'; pushEl.type = 'button'; pushEl.textContent = 'PUSH!';
+    pushEl.style.cssText = 'position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);z-index:70;width:108px;height:108px;border-radius:50%;border:5px solid #fff;background:radial-gradient(circle at 35% 30%,#ffb35a,#ff3d6e 70%);color:#fff;font:900 23px "Zen Maru Gothic",sans-serif;letter-spacing:.04em;box-shadow:0 0 28px #ff3d6e,0 8px 0 #9a1a3a;display:none;animation:pushPulse .5s infinite alternate';
+    const st = document.createElement('style'); st.textContent = '@keyframes pushPulse{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.12)}}'; document.head.appendChild(st);
+    pushEl.addEventListener('click', e => { e.stopPropagation(); pushDone(true); }); document.body.appendChild(pushEl);
+  }
+  pushEl.style.display = 'block'; sfxPushPrompt();
+}
+function hidePush() { if (pushEl) pushEl.style.display = 'none'; }
+function pushDone(manual) {
+  if (!lcd.btnWait) return; lcd.btnWait = false; hidePush();
+  if (manual) { sfxPush(); flash = 1; if (lcd.res && lcd.res.win) sfxSuper(); }
+}
+
 function sfxWin() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'square', 0.22, 0, i * 0.11)); }
 
 let angleDeg = 0;            // ハンドル角度 (-135〜135)
@@ -1269,8 +1347,10 @@ function postStep(dt) {
     if (denOpen() && b.x > DEN.x && b.x < DEN.x + DEN.w && b.y > DEN.y && b.y < DEN.y + DEN.h) {
       state.hit++; dm('hit'); dm('den'); G.rec.den++; dexMark('sp', 'den'); state.have += PRIZE.den; flash = calm ? 0.15 : 0.6; onStart(); balls.splice(i, 1); continue;
     }
+    // 袖入賞口
+    { let got = false; for (const sd of SODE) if (b.x > sd.x && b.x < sd.x + sd.w && b.y > sd.y && b.y < sd.y + sd.h) { got = true; break; } if (got) { state.have += PRIZE.sode; sfxJara(); balls.splice(i, 1); continue; } }
     // アタッカー（大当たり中のみ）
-    if (attOpen() && b.y > ATT.y && b.y < ATT.y + ATT.h && b.x > ATT.x && b.x < ATT.x + ATT.w) { catchBall(); balls.splice(i, 1); continue; }
+    if (attOpen() && b.y > ATT.y && b.y < ATT.y + ATT.h && b.x > ATT.x && b.x < ATT.x + ATT.w) { if (bonus.round >= BONUS.rounds && b.x > ATT.x + ATT.w - 24 && !bonus.v) { bonus.v = true; sfxSuper(); if (KAKU_SYMS.has(bonus.sym)) toast('V入賞！ 確変ゲット！'); } catchBall(); balls.splice(i, 1); continue; }
     // 盤面の外
     if (b.y > H + 12) { state.out++; balls.splice(i, 1); continue; }
     // 引っかかり対策
@@ -1565,6 +1645,8 @@ function renderStatic() {
   c.strokeStyle = '#e8c15a'; c.lineWidth = 2; roundRect(c, ATT.x, ATT.y, ATT.w, ATT.h, 6); c.stroke();
   c.fillStyle = '#e8c15a'; c.font = 'bold 9px "Zen Maru Gothic", sans-serif'; c.fillText('BON', ATT.x + ATT.w / 2, ATT.y + ATT.h / 2 + 1);
   FR_COL.slice(0, 6).forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.arc(ATT.x + 6 + i * ((ATT.w - 12) / 5), ATT.y + ATT.h + 3, 1.8, 0, 7); c.fill(); });
+  // 袖入賞口（一般入賞口）
+  SODE.forEach(sd => { c.fillStyle = '#1a0f33'; roundRect(c, sd.x, sd.y, sd.w, sd.h, 4); c.fill(); c.strokeStyle = '#8fd0ff'; c.lineWidth = 1.6; roundRect(c, sd.x, sd.y, sd.w, sd.h, 4); c.stroke(); c.fillStyle = '#8fd0ff'; c.font = 'bold 8px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('5', sd.x + sd.w / 2, sd.y + sd.h / 2 + 0.5); });
   // 発射口マーク
   c.fillStyle = '#ff8a00'; c.beginPath(); c.moveTo(24, H - 16); c.lineTo(32, H - 4); c.lineTo(16, H - 4); c.closePath(); c.fill();
   staticLayer = off;
@@ -1686,7 +1768,7 @@ function resize() {
 function draw() {
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.drawImage(staticLayer, 0, 0);
-  drawBoardDeco(); try { drawOshiSide(); } catch (e) {} drawWindmills(); drawDen(); drawYaku(); drawAttacker();
+  drawBoardDeco(); try { drawOshiSide(); } catch (e) {} drawWindmills(); drawDen(); drawYaku(); drawLamps(); drawAttacker();
   const r = ballSprite.width / 2;
   for (const b of balls) ctx.drawImage(ballSprite, b.x * S - r, b.y * S - r);
   if (flash > 0) {
@@ -1807,6 +1889,7 @@ window.addEventListener('keydown', e => {
   if (document.querySelector('.ov.show')) return;
   const click = id => { const b = document.getElementById(id); if (b) b.click(); };
   switch (e.code) {
+    case 'Enter': if (lcd.btnWait) pushDone(true); break;
     case 'KeyA': click('bAuto'); break;
     case 'KeyS': click('bSkip'); break;
     case 'KeyZ': click('lcdZoom'); break;
@@ -1870,6 +1953,7 @@ window.addEventListener('orientationchange', () => setTimeout(resize, 200));
 /* ---------- 確変・時短・進行データ ---------- */
 const MODE = { k: 'normal', left: 0 };           // normal / kaku(確変) / jitan(時短) / bonus(大当たり中)
 const JITAN_SPINS = 100;
+const YUU_SPINS = 800;   // 遊タイム：大当たりなしで通常のまま800回転すると、時短が始まる
 const KAKU_SPINS = 50;   // 確変（ST）の回転数。この回転数で当たらなければ通常（左打ち）に戻る。数字を変えれば調整できる
 const KAKU_SYMS = new Set([1, 3, 5, 6, 14, 15]);  // 数字2・4・6・7、STAR、FEVER の大当たりは確変
 const supportOn = () => MODE.k === 'kaku' || MODE.k === 'jitan';
@@ -1891,7 +1975,7 @@ const DAILY_ALL_R = 3;
 function dexMark(kind, id) { G.dex[kind][id] = (G.dex[kind][id] || 0) + 1; }
 function bonSeen(i) { if (i >= 0 && i < 7) G.dex.bon[i] = (G.dex.bon[i] || 0) + 1; }
 function onWin(res) {   // 当たりが確定して液晶が揃った時点の記録
-  G.life.wins++;
+  G.life.wins++; G.yuu = 0;
   bonus.sym = res.symIdx;
   G.chain = supportOn() ? (G.chain || 0) + 1 : 1;
   if (G.chain > G.rec.bestChain) G.rec.bestChain = G.chain;
@@ -1903,12 +1987,16 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
   dm('win');
 }
 function onLose() {
+  const wasNormal = MODE.k === 'normal';
   if (MODE.k === 'kaku') { MODE.left--; if (MODE.left <= 0) { MODE.k = 'normal'; G.chain = 0; toast('確変が終わったよ。左打ちに戻そう（ハンドルを左へ）'); } }
   if (MODE.k === 'jitan') { MODE.left--; if (MODE.left <= 0) { MODE.k = 'normal'; G.chain = 0; toast('時短が終わったよ。左打ちに戻そう（ハンドルを左へ）'); } }
+  if (wasNormal && MODE.k === 'normal') { G.yuu = (G.yuu | 0) + 1; if (G.yuu >= YUU_SPINS) { G.yuu = 0; MODE.k = 'jitan'; MODE.left = JITAN_SPINS; G.rec.jitan++; dexMark('sp', 'jitan'); toast(`遊タイム突入！ 時短${JITAN_SPINS}回転！右打ちで電チューを狙え！`); sfxHot(); setSide('R'); } }
 }
 function endBonusMode() {   // 10ラウンド終了：図柄で確変／時短へ
-  try { const h = G.hist && G.hist[G.hist.length - 1]; if (h) { h.g = bonus.gained | 0; h.k = KAKU_SYMS.has(bonus.sym) ? 'kaku' : 'jitan'; } } catch (e) {}
-  if (KAKU_SYMS.has(bonus.sym)) { MODE.k = 'kaku'; MODE.left = KAKU_SPINS; G.rec.kaku++; dm('kaku'); dexMark('sp', 'kaku'); toast(`確変 ${KAKU_SPINS}回転！右打ちで電チューを狙え！`); }
+  const kakuOK = KAKU_SYMS.has(bonus.sym) && bonus.v;   // ラッキートリガー：確変図柄でも、最終ラウンドのVに入らなければ時短
+  try { const h = G.hist && G.hist[G.hist.length - 1]; if (h) { h.g = bonus.gained | 0; h.k = kakuOK ? 'kaku' : 'jitan'; } } catch (e) {}
+  if (KAKU_SYMS.has(bonus.sym) && !bonus.v) toast('Vに入らなかった……時短になるよ');
+  if (kakuOK) { MODE.k = 'kaku'; MODE.left = KAKU_SPINS; G.rec.kaku++; dm('kaku'); dexMark('sp', 'kaku'); toast(`確変 ${KAKU_SPINS}回転！右打ちで電チューを狙え！`); }
   else { MODE.k = 'jitan'; MODE.left = JITAN_SPINS; G.rec.jitan++; dexMark('sp', 'jitan'); toast(`時短 ${JITAN_SPINS}回転！右打ちで電チューを狙え！`); }
   setSide('R');
 }
@@ -2363,7 +2451,7 @@ const HOWTO = [
   { t: '② 玉を打つ（左打ち）', bon: [0, 0], say: 'ほら、ちゃんと狙って打ちなさいよ！ アタシが見てるんだから！', b: ['画面の<b>左打ち</b>ボタンのときは、玉を弱めに打つよ。玉は<b>釘</b>に当たってはね返りながら落ちていくんだ。', '下の方にある<b>スタートチャッカー</b>（小さな入口）に玉が入ると、スロットが<b>1回まわる</b>！ これが「抽選」だよ。', '押しっぱなしで打ち続けてもいいし、<b>連続発射</b>をONにすると自動で打ってくれるよ。'] },
   { t: '③ 「保留」ってなに？', bon: [3, 0], say: 'じゅんばん待ちだよ〜。ならんで待つの、うち、とくいだよ〜', b: ['スロットが回っている間に、また玉がチャッカーに入ったら……順番待ちとして<b>保留</b>にたまっていくよ（最大8つ）。', '回転が終わると、保留が<b>1つずつ</b>消化されて、次のスロットが回るよ。'] },
   { t: '④ 大当たり！', bon: [1, 2], say: 'やった〜！ 大当たりだよ！ みんなでお祝いしよ！', b: ['図柄がそろったら<b>大当たり</b>！ 全部で<b>10ラウンド</b>あるよ。', '大当たり中は<b>アタッカー</b>（大きな入口）が開くから、そこにどんどん玉を入れよう。入れた分だけ玉が増えるよ！', '大きく増えた玉は、<b>持ち玉</b>になるよ。'] },
-  { t: '⑤ 確変と時短（右打ち）', bon: [0, 2], say: 'あんた、右打ちよ！ 間違えたら承知しないからね！', b: ['大当たりが始まったら、自分で<b>右打ち</b>に切りかえよう（「右打ち」ボタンでハンドルを右に固定。画面にも「右打ち」と出るよ）。左に打つと玉がムダになるから注意！右側にある<b>電チュー</b>という入口が開いて、玉が入りやすくなるんだ。', '<b>確変</b>（50回転）は、いちばんおいしいモード！ この間に当たると、また大当たりチャンス。', '<b>時短</b>（100回転）は、玉が減りにくいモード。どちらも終わったら、「左打ち」ボタンで<b>左打ち</b>にもどそう。'] },
+  { t: '⑤ 確変と時短（右打ち）', bon: [0, 2], say: 'あんた、右打ちよ！ 間違えたら承知しないからね！', b: ['大当たりが始まったら、自分で<b>右打ち</b>に切りかえよう（「右打ち」ボタンでハンドルを右に固定。画面にも「右打ち」と出るよ）。左に打つと玉がムダになるから注意！右側にある<b>電チュー</b>という入口が開いて、玉が入りやすくなるんだ。', '<b>確変</b>（50回転）は、いちばんおいしいモード！ この間に当たると、また大当たりチャンス。', '<b>時短</b>（100回転）は、玉が減りにくいモード。どちらも終わったら、「左打ち」ボタンで<b>左打ち</b>にもどそう。', '確変図柄の大当たりでも、最終ラウンドで右の<b>V</b>（ピンクの入口）に玉を入れないと、<b>確変にならず時短</b>になるよ（ラッキートリガー）。', '大当たりなしで通常のまま<b>800回転</b>回すと、<b>遊タイム</b>で時短が始まるよ（データカウンターで残りが見られる）。', '盤面の左下・右下の<b>袖入賞口</b>に入ると5個、アタッカーは1個15個、ヘソは3個戻るよ。リーチ中の<b>PUSH!</b>は、押すと派手になるおまけ演出（Enterキーでも押せる）。'] },
   { t: '⑥ 玉とボンコイン', bon: [5, 1], say: 'コ、コインは1時間に1枚、もどります……', b: ['遊び始めるときに、<b>ボンコイン1枚</b>で玉を借りるよ。<b>4円パチンコ</b>は250玉でじっくり、<b>1円パチンコ</b>は1000玉でどんどん打てる。', 'ボンコインは<b>1時間に1枚</b>自動で回復するよ（上限5枚）。', 'たまった玉は、<b>玉の景品交換所</b>でガチャやボンコインの上限アップなどと交換できるよ。', 'あとは、玉を打って、ワクワクするだけ！ 楽しんでね。'] },
   { t: '⑦ 保留の色で、先読み！', bon: [2, 0], say: 'あわわ……！ いろが変わったよ！？', b: ['保留のランプは、<b>色</b>で当たりそうな度合いを教えてくれるよ。<b>青</b>はふつう、<b>緑</b>は少しチャンス、<b>赤</b>はかなりアツい！ そして<b>虹色</b>が出たら……覚悟してね。', '回している最中に<b>予告</b>（ボンちゃんが横切る、画面が光る、など）が出ると、期待が高まるよ。ただし、予告が出ても外れることはあるし、出なくても当たることもあるんだ。', '保留の色も予告も、あくまで<b>お楽しみの演出</b>。当たりやすさを変えるものではないよ。'] },
   { t: '⑧ リーチ！', bon: [0, 1], say: 'リーチ！ ここからが本番でしょ！ アタシの勝負、見てなさい！', b: ['3つの図柄のうち2つがそろうと<b>リーチ</b>！ 最後の1つがそろえば大当たりだよ。', 'リーチには、ボンが1人で出てくるものや、みんなで協力するもの、<b>にじボン</b>が出てくる特別なものなどがあるよ。特別なほど、アツい！', '外れたときも落ち込まないで。リーチが見られるだけでも、ちょっとお得だよ。', '見たくない演出は、画面の<b>演出スキップ</b>ボタンで飛ばせるよ。'] },
@@ -2404,6 +2492,7 @@ function openData() {
   const best = hist.reduce((m, h) => Math.max(m, h.g | 0), 0);
   let h = '<h2 style="font-size:22px">データカウンター</h2>';
   h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;font-size:13px"><div class="coinbar" style="margin:0">前回の大当たりから<br><b style="font-size:22px">${since}</b> 回転</div><div class="coinbar" style="margin:0">最高連チャン<br><b style="font-size:22px">${G.rec.bestChain || 0}</b> 連</div><div class="coinbar" style="margin:0">大当たり回数<br><b style="font-size:20px">${G.life.wins || 0}</b> 回</div><div class="coinbar" style="margin:0">1回の最高出玉<br><b style="font-size:20px">${best}</b> 玉</div></div>`;
+  { const yu = Math.max(0, YUU_SPINS - (G.yuu | 0)); h += `<div class="coinbar" style="margin:0 0 6px;font-size:13px">${MODE.k === 'normal' ? `遊タイムまで あと <b style="font-size:18px">${yu}</b> 回転（時短${JITAN_SPINS}回転）` : '遊タイムは通常のときにたまるよ'}</div>`; }
   { const TT = [[0, 'ボンの見習い'], [2, 'ちょい連チャンボン'], [3, '連チャンボン'], [5, '連チャンの達人'], [8, 'ユートピアの住人'], [10, '伝説のボン'], [15, 'にじボンの友だち']];
     const bc = G.rec.bestChain || 0; let ti = 0; TT.forEach((t, i) => { if (bc >= t[0]) ti = i; });
     h += `<div class="coinbar" style="margin:0 0 6px;font-size:13px">称号　<b style="font-size:17px">👑 ${TT[ti][1]}</b>${TT[ti + 1] ? `<br><small>次は「${TT[ti + 1][1]}」（${TT[ti + 1][0]}連チャン）</small>` : '<br><small>いちばん上の称号だよ！</small>'}</div>`; }
