@@ -356,7 +356,7 @@ setTimeout(() => { try { SYMBOLS.forEach((k, i) => { for (let n = 0; n < 6; n++)
 
 /* ---------- 抽選設定（確率・保留数はここで管理） ---------- */
 const LOTTERY = { prob: 319, holdMax: 8, resultTime: 1.6 };
-try { const sv = parseInt(localStorage.getItem('pachi_prob'), 10); if ([99, 199, 319, 399].includes(sv)) LOTTERY.prob = sv;   // 1/10のテスト台はデバッグモードのときだけ } catch (e) {}
+try { const sv = parseInt(localStorage.getItem('pachi_prob'), 10); /* 1/10のテスト台はデバッグモードのときだけ */ if ([99, 199, 319, 399].includes(sv)) LOTTERY.prob = sv; } catch (e) {}
 /* 台のスペック（確率ごとに「台の種類」が変わる）：確変中の確率の割り方・ラウンド数 */
 const MACH = { 10: { name: 'テスト台', div: 5, rounds: 10 }, 99: { name: '甘デジ', div: 3, rounds: 5 }, 199: { name: 'ライトミドル', div: 5, rounds: 8 }, 319: { name: 'ミドル', div: 7, rounds: 10 }, 399: { name: 'ハイミドル', div: 8, rounds: 12 } };
 const machOf = () => MACH[LOTTERY.prob] || MACH[319];
