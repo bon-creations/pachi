@@ -410,7 +410,7 @@ const BONUS = { rounds: 10, perRound: 10, perBall: 15, roundTimeout: 18, gap: 1.
 const PRIZE = { hes: 3, den: 1, sode: 5 };   // 賞球。ヘソ3・電チュー1・大入賞口15（BONUS.perBall）・袖入賞口5
 const SODE = [{ x: 82, y: 610, w: 22, h: 12 }, { x: 366, y: 612, w: 22, h: 12 }];   // 袖入賞口（一般入賞口）
 let chuckT = 0, attAnim = 0, lampT = 0, lastDraw = performance.now();   // 賞球（入賞したときに戻る玉）
-const DEN = { x: 410, y: 490, w: 36, h: 12 };   // 電チュー（右ヘソ）
+const DEN = { x: 426, y: 490, w: 40, h: 12 };   // 電チュー（右ヘソ）
 let denT = 0;
 const denOpen = () => supportOn() && denT % 1.5 < 1.1;
 const ATT = { x: 402, y: 588, w: 64, h: 14 }; // 大当たり中に開く右アタッカー
