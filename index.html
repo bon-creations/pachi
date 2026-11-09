@@ -413,7 +413,7 @@ const BONUS = { rounds: 10, perRound: 10, perBall: 15, roundTimeout: 18, gap: 1.
 const PRIZE = { hes: 3, den: 1, sode: 5 };   // 賞球。ヘソ3・電チュー1・大入賞口15（BONUS.perBall）・袖入賞口5
 const SODE = [{ x: 82, y: 610, w: 22, h: 12 }, { x: 366, y: 612, w: 22, h: 12 }];   // 袖入賞口（一般入賞口）
 let chuckT = 0, attAnim = 0, lampT = 0, lastDraw = performance.now();   // 賞球（入賞したときに戻る玉）
-const DEN = { x: 426, y: 490, w: 40, h: 12 };   // 電チュー（右ヘソ）
+const DEN = { x: 426, y: 490, w: 34, h: 12 };   // 電チュー（右ヘソ）
 let denT = 0;
 const denOpen = () => supportOn() && denT % 1.5 < 1.1;
 const ATT = { x: 402, y: 588, w: 64, h: 14 }; // 大当たり中に開く右アタッカー
@@ -647,7 +647,7 @@ function startNextSpin() {
   if (lcd.phase !== 'idle' || state.queue.length === 0) return;
   dm('spin'); dm('spin200'); artVar++;
   lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res);
-  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; state.spins++; G.life.spins++;
+  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; state.spins++; G.life.spins++; sfxSpinStart();
   if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
 }
@@ -664,7 +664,7 @@ function onStart() {
   if (state.queue.length < LOTTERY.holdMax) {
     const res = drawLottery(); res.hc = pickHoldColor(res.win); res.hshow = res.hc === 'blue';
     if (res.hc !== 'blue') setTimeout(() => { res.hshow = true; if (res.hc === 'rainbow') sfxChance(); else sfxYk(); }, 650);   // 最初は青で入り、少しして色が変わる
-    state.queue.push(res);
+    state.queue.push(res); sfxHold();
   }
   startNextSpin();
 }
@@ -695,6 +695,7 @@ function updateLCD(dt) {
   if (ph === 'spin') {
     const P = lcd.plan;
     P.yokoku.forEach((y, i) => { if (t >= y.at) once('yk' + i, () => { if (!lcd.skipped) playYokokuSe(y.id); dm('yk'); dexMark('yk', y.id); if (y.id === 'cutin') bonSeen(P.chars[0]); if (y.id === 'niji-appear') bonSeen(6); if (y.id === 'seven-bons') for (let b = 0; b < 7; b++) bonSeen(b); }); });
+    if (P.zone && t >= 0.4) once('zone', () => { if (!lcd.skipped) sfxZone(); });
     if (P.hot && t >= P.hotAt) once('hot', () => { if (!lcd.skipped) { sfxHot(); toast('激アツ！！'); } });
     for (let k = 0; k < (P.gi | 0); k++) if (t >= P.giAt[k]) once('gi' + k, () => { if (!lcd.skipped) sfxGi(k); });
     if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
@@ -704,7 +705,7 @@ function updateLCD(dt) {
       if (lcd.res.win || state.queue.length === 0 || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // 連続で回転するとき（ハズレで次の保留がある）は、曲を止めずに続ける
       P.sym.forEach(x => { G.dex.symSeen[x] = 1; });
       if (lcd.res.win) { state.wins++; onWin(lcd.res); dexMark('sp', P.premium ? 'premium' : 'win'); if (P.premium) G.rec.premium++; if (lcd.res.symIdx === SEVEN) dexMark('sp', 'seven'); lcd.phase = 'intro'; lcd.t = 0; lcd.fired = {}; }
-      else { onLose(); lcd.phase = 'result'; lcd.t = 0; }
+      else { onLose(); sfxLose(); lcd.phase = 'result'; lcd.t = 0; }
     }
   } else if (ph === 'result') {
     if (t >= 1.2) { lcd.phase = 'idle'; lcd.res = null; lcd.plan = null; startNextSpin(); }
@@ -1141,7 +1142,9 @@ function sfxFire() {
 }
 function sfxNail(v) {
   /* 本物の釘：鋼の玉が真ちゅうの釘に当たる「カッ」というクリックに、短く鳴る金属の「チン」と、盤に響く小さな「コッ」を重ねる。音程は毎回ばらす */
-  const now = performance.now(); if (now - snd.lastNail < 16) return; snd.lastNail = now;
+  const now = performance.now(); snd.nailQ = (snd.nailQ || []).filter(t => now - t < 70);
+  if (snd.nailQ.length >= 7 || (now - snd.lastNail < 6)) return;   // 同時に鳴らしすぎない（音が飛ぶのを防ぐ）。数の上限だけ決めて、ふつうの当たりは必ず鳴らす
+  snd.lastNail = now; snd.nailQ.push(now);
   const s = Math.min(1, v / 700), g = 0.26 + s * 0.3, f = 2600 + Math.random() * 1500;
   noise(0.012, g * 1.4, 4200);
   tone(f, 0.075, 'sine', g, f * 0.985);
@@ -1149,6 +1152,25 @@ function sfxNail(v) {
   tone(900 + Math.random() * 250, 0.035, 'triangle', g * 0.7, 520);
   if (s > 0.45) tone(f * 1.5, 0.11, 'sine', g * 0.3);
 }
+/* 盤面の音いろいろ：レール・風車・役物・外枠・アウト口・保留・電チューなど */
+snd.hitQ = [];
+function sfxHit(v, kind) {
+  const now = performance.now(); snd.hitQ = snd.hitQ.filter(t => now - t < 90); if (snd.hitQ.length >= 4) return; snd.hitQ.push(now);
+  const s = Math.min(1, v / 700), g = 0.16 + s * 0.28;
+  if (kind === 'wm') { tone(1500 + Math.random() * 500, 0.05, 'triangle', g, 900); noise(0.015, g, 3000); }          // 風車：カラッと軽い音
+  else if (kind === 'yaku') { tone(520 + Math.random() * 120, 0.09, 'triangle', g * 1.1, 300); noise(0.02, g * 0.8, 1800); }   // 役物：プラスチックのコツン
+  else if (kind === 'wall') { tone(330 + Math.random() * 60, 0.08, 'triangle', g * 0.9, 200); noise(0.02, g * 0.6, 2200); }    // 外枠：木の枠のコトッ
+  else { tone(1900 + Math.random() * 600, 0.05, 'sine', g * 0.8, 1500); noise(0.014, g * 0.8, 3600); }                           // レール：金属のチリッ
+}
+let outT = 0;
+function sfxOut() { const n = performance.now(); if (n - outT < 90) return; outT = n; tone(240, 0.09, 'sine', 0.16, 110); noise(0.05, 0.07, 700); }      // アウト口：ポトッ
+function sfxHold() { tone(1568, 0.05, 'square', 0.12); tone(2093, 0.06, 'square', 0.1, 0, 0.05); }                                                       // 保留が増えた：ピッ
+function sfxSpinStart() { noiseBP(0.22, 0.3, 700, 2600, 1.4); tone(220, 0.14, 'sawtooth', 0.18, 520); }                                                  // 変動開始：ギュルッ
+function sfxLose() { tone(300, 0.14, 'triangle', 0.2, 180); tone(220, 0.2, 'triangle', 0.2, 130, 0.1); }                                                 // ハズレ：しょぼん
+function sfxDenIn() { tone(1760, 0.07, 'square', 0.16); tone(2349, 0.09, 'square', 0.15, 0, 0.06); noise(0.02, 0.2, 4000); }                              // 電チュー入賞：ピロッ
+function sfxDenOpen() { noise(0.05, 0.25, 1500); tone(700, 0.08, 'square', 0.14, 1100); }                                                                  // 電チューが開く：パカッ
+function sfxDenClose() { noise(0.04, 0.2, 1200); tone(900, 0.07, 'square', 0.12, 500); }                                                                  // 電チューが閉じる：パタン
+function sfxZone() { tone(220, 0.5, 'sawtooth', 0.2, 440); tone(330, 0.5, 'triangle', 0.18, 660, 0.05); noiseBP(0.5, 0.18, 400, 2200, 1.6); }              // ゾーン：ゴゴゴ……
 function sfxChucker() { [880, 1175, 1568].forEach((f, i) => tone(f, 0.16, 'square', 0.18, 0, i * 0.07)); }
 function sfxReelStop(i) { tone(420 + i * 90, 0.07, 'square', 0.2); }
 function sfxReach() { [660, 880, 1100].forEach((f, i) => tone(f, 0.18, 'sawtooth', 0.16, f * 1.3, i * 0.12)); }
@@ -1244,7 +1266,7 @@ function hitCircle(b, cx, cy, cr, e, jitter, isNail) {
   b.x = cx + nx * minD; b.y = cy + ny * minD;
   const vn = b.vx * nx + b.vy * ny;
   if (vn < 0) {
-    if (isNail && -vn > 140) sfxNail(-vn);
+    if (-vn > 30) { if (isNail === true) sfxNail(-vn); else if (isNail) sfxHit(-vn, isNail); }
     b.vx -= (1 + e) * vn * nx;
     b.vy -= (1 + e) * vn * ny;
     if (jitter) {
@@ -1258,6 +1280,7 @@ function hitCircle(b, cx, cy, cr, e, jitter, isNail) {
 function hitWallNormal(b, nx, ny) { // nx,ny: 内向き法線
   const vn = b.vx * nx + b.vy * ny;
   if (vn < 0) {
+    if (-vn > 60) sfxHit(-vn, 'wall');
     const e = CONFIG.wallRestitution;
     b.vx -= (1 + e) * vn * nx;
     b.vy -= (1 + e) * vn * ny;
@@ -1293,9 +1316,9 @@ function collideRail(b) {
   // 内レール：縦線分 (RAIL_X, RAIL_TOP)-(RAIL_X, H) 半径2のカプセル
   hitSeg(b, RAIL_X, H, RAIL_X1, RAIL_TOP, 2.2, 0.35, 0.1);
 }
-function hitSeg(b, ax, ay, bx, by, rad, e, jitter) {
+function hitSeg(b, ax, ay, bx, by, rad, e, jitter, kind) {
   const dx = bx - ax, dy = by - ay; let t = ((b.x - ax) * dx + (b.y - ay) * dy) / (dx * dx + dy * dy); t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return hitCircle(b, ax + dx * t, ay + dy * t, rad, e, jitter);
+  return hitCircle(b, ax + dx * t, ay + dy * t, rad, e, jitter, kind || 'rail');
 }
 const attOpen = () => bonus.open && lcd.phase === 'rounds';
 function collideRoute(b) {
@@ -1307,15 +1330,15 @@ function collideRoute(b) {
 function collideWM(b) {
   for (const w of WM) {
     if (Math.abs(b.x - w.x) > WM_R + 10 || Math.abs(b.y - w.y) > WM_R + 10) continue;
-    hitCircle(b, w.x, w.y, 3, 0.4, 0.1);
+    hitCircle(b, w.x, w.y, 3, 0.4, 0.1, 'wm');
     for (let k = 0; k < 4; k++) {
       const a = w.a + k * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a);
-      for (const d of [8, 14]) hitCircle(b, w.x + ca * d, w.y + sa * d, 2.4, 0.45, 0.12);
+      for (const d of [8, 14]) hitCircle(b, w.x + ca * d, w.y + sa * d, 2.4, 0.45, 0.12, 'wm');
     }
   }
 }
 
-function collideYaku(b) { hitCircle(b, YAKU.x, YAKU.y, YAKU.r, 0.55, 0.2); }
+function collideYaku(b) { hitCircle(b, YAKU.x, YAKU.y, YAKU.r, 0.55, 0.2, 'yaku'); }
 function collideLCD(b) {
   const px = Math.min(Math.max(b.x, LCDP.x), LCDP.x + LCDP.w);
   const py = Math.min(Math.max(b.y, LCDP.y), LCDP.y + LCDP.h);
@@ -1367,7 +1390,9 @@ function step(h) {
   collideBalls();
 }
 
+let denWas = false;
 function postStep(dt) {
+  { const o = denOpen(); if (o !== denWas) { denWas = o; if (o) sfxDenOpen(); else sfxDenClose(); } }
   for (let i = balls.length - 1; i >= 0; i--) {
     const b = balls[i];
     // STARTチャッカー入賞
@@ -1376,14 +1401,14 @@ function postStep(dt) {
     }
     // 電チュー（右ヘソ）：確変・時短中だけ開く
     if (denOpen() && b.x > DEN.x && b.x < DEN.x + DEN.w && b.y > DEN.y && b.y < DEN.y + DEN.h) {
-      state.hit++; dm('hit'); dm('den'); G.rec.den++; dexMark('sp', 'den'); state.have += PRIZE.den; flash = calm ? 0.15 : 0.6; onStart(); balls.splice(i, 1); continue;
+      state.hit++; dm('hit'); dm('den'); G.rec.den++; dexMark('sp', 'den'); state.have += PRIZE.den; sfxDenIn(); flash = calm ? 0.15 : 0.6; onStart(); balls.splice(i, 1); continue;
     }
     // 袖入賞口
     { let got = false; for (const sd of SODE) if (b.x > sd.x && b.x < sd.x + sd.w && b.y > sd.y && b.y < sd.y + sd.h) { got = true; break; } if (got) { state.have += PRIZE.sode; sfxJara(); balls.splice(i, 1); continue; } }
     // アタッカー（大当たり中のみ）
     if (attOpen() && b.y > ATT.y && b.y < ATT.y + ATT.h && b.x > ATT.x && b.x < ATT.x + ATT.w) { if (bonus.round >= BONUS.rounds && b.x > ATT.x + ATT.w - 24 && !bonus.v) { bonus.v = true; sfxSuper(); if (KAKU_SYMS.has(bonus.sym)) toast('V入賞！ 確変ゲット！'); } catchBall(); balls.splice(i, 1); continue; }
     // 盤面の外
-    if (b.y > H + 12) { state.out++; balls.splice(i, 1); continue; }
+    if (b.y > H + 12) { state.out++; sfxOut(); balls.splice(i, 1); continue; }
     // 引っかかり対策
     if (Math.hypot(b.vx, b.vy) < 8) {
       b.slow += dt;
