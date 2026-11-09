@@ -1992,7 +1992,7 @@ function renderMenu() {
   const dot = n => n > 0 ? `<span class="dot">${n > 9 ? '9+' : n}</span>` : '';
   h += `<div class="subrow"><button id="mDex">📖 図鑑</button><button id="mMis">🎯 ミッション${dot(claimCount())}</button><button id="mGacha">🎁 応援ガチャ${gachaReady() ? '<span class="dot">!</span>' : ''}</button><button id="mQuiz">🧠 ボンクイズ${dot(quizLeft())}</button></div>`;
   $('menuBtns').innerHTML = h;
-  { const sub0 = $('menuBtns').querySelector('.subrow'); if (sub0) sub0.insertAdjacentHTML('beforebegin', `<button class="big" id="mShop" style="background:linear-gradient(#ffe08a,#ffb938);border-color:#b57a12">🎁 玉の景品交換所<small>持ち玉 ${totalBalls()} 玉 ／ ガチャ・コイン上限・応援</small></button>`); }   // 景品交換所は「続きから」のすぐ下
+  { const sub0 = $('menuBtns').querySelector('.subrow'); if (sub0) sub0.insertAdjacentHTML('beforebegin', `<button class="big" id="mShop" style="background:linear-gradient(#ffe08a,#ffb938);border-color:#b57a12">🎁 玉の景品交換所<small>持ち玉 ${totalBalls()} 玉 ／ UB（ユートピアボン）に両替してガチャ・コイン上限・応援</small></button>`); }   // 景品交換所は「続きから」のすぐ下
   $('menuBtns').insertAdjacentHTML('beforeend', `<button class="big" id="mBontify" style="position:relative"><span style="display:inline-block">${bfLogo(26)}</span><small>にじボンの曲とつぶやき（${bfCount()} / ${BF_TRACKS.length}曲 解放）</small>${bfNew() ? '<span class="dot" style="position:absolute;right:8px;top:-5px;background:#ff3d6e;color:#fff;border-radius:9px;font-size:10px;padding:0 6px">NEW</span>' : ''}</button><button class="big" id="mBgm">🎨 カスタム<small>保留・予告・BGM</small></button>`); $('mBontify').onclick = openBontify; $('mShop').onclick = () => openShop('gacha'); $('mBgm').onclick = () => openCustom('hold'); $('mDex').onclick = () => openDex(); $('mMis').onclick = () => openMissions(); $('mGacha').onclick = openGacha; $('mQuiz').onclick = openQuiz;
   const sr = $('menuBtns').querySelector('.subrow'); if (sr) { sr.insertAdjacentHTML('afterend', '<button class="big" id="mHow" style="background:linear-gradient(#bfe7ff,#7cc4f5);border-color:#3b8bc4;color:#103a5c">📘 ボンでもわかるパチンコ<small>遊び方・用語を、やさしく解説</small></button>'); const hb = $('mHow'); if (hb) hb.addEventListener('click', () => openHowTo(0));
     $('mHow').insertAdjacentHTML('afterend', `<div class="subrow"><button id="mData">📊 データ</button><button id="mShare">📸 シェア</button><button id="mSet">⚙ 設定</button></div>`);
@@ -2203,7 +2203,8 @@ subOv.innerHTML = '<div class="box" id="subBox" style="width:min(94vw,440px);tex
 document.body.appendChild(subOv);
 function openSub(html) { const b = document.getElementById('subBox'); b.innerHTML = html; subOv.classList.add('show'); b.scrollTop = 0; bindClose(); }
 function bindClose() { document.querySelectorAll('#subBox [data-close]').forEach(e => { e.onclick = closeSub; }); }
-function closeSub() { if (typeof bgmPreviewStop === 'function') bgmPreviewStop(); subOv.classList.remove('show'); if ($('menu').classList.contains('show')) renderMenu(); }
+let tutAfter = null;
+function closeSub() { if (typeof bgmPreviewStop === 'function') bgmPreviewStop(); subOv.classList.remove('show'); if ($('menu').classList.contains('show')) renderMenu(); if (tutAfter) { const t = tutAfter; tutAfter = null; try { t(); } catch (e) {} } }
 subOv.addEventListener('click', e => { if (e.target === subOv) closeSub(); });
 const closeBtn = '<button class="big" data-close="1">閉じる</button>';
 const addCoins = n => { save.coins += n; saveGame(); };
@@ -2354,7 +2355,8 @@ const SHOP_LINES = [
 const SHOP_LINE_COST = [500, 1000, 2000], SHOP_GACHA_COST = 300, SHOP_COIN_COST = 1500, SHOP_EXTRA_COST = [1500, 3000, 4500, 6000, 8000], SHOP_EXTRA_MAX = 5, SHOP_CHEER_UNIT = 100;
 const SHOP_TITLES = ['', 'ファン', 'ファンクラブ会員', '親衛隊', '殿堂入り'];
 const shopLv = i => Math.min(4, Math.floor((G.shop.cheer[i] || 0) / 1000));
-function shopSpend(n) { const tot = totalBalls(); if (tot < n) { toast(`玉がたりないよ（あと ${n - tot} 玉）`); return false; } let r = n; const f = k => { const m = Math.min(r, state[k]); state[k] -= m; r -= m; }; f('box'); f('shimo'); f('have'); saveGame(); return true; }
+const bonOwn = () => (G && G.shop && G.shop.bon) | 0;   // 通貨「ボン」（玉を、1円パチンコは1玉＝1ボン・4円パチンコは1玉＝4ボンで両替したもの）
+function shopSpend(n) { const have = bonOwn(); if (have < n) { toast(`UBがたりないよ（あと ${n - have}）`); return false; } G.shop.bon = have - n; saveGame(); return true; }
 /* ---------- ボンでもわかるパチンコ（初心者向けの遊び方） ---------- */
 const HOWTO = [
   { t: '① パチンコって、なにするの？', bon: [1, 1], say: 'ようこそ〜！ いっしょに遊ぼうね！', b: ['鉄の玉を<b>打ち出して</b>、台の真ん中にある<b>スロット（液晶）</b>で図柄がそろうと<b>大当たり</b>！ 大当たり中は玉がどんどん増えるよ。', 'この「BON UTOPIA」は<b>完全無料</b>。お金は一切かからないし、換金もできないから安心してね。'] },
@@ -2366,7 +2368,7 @@ const HOWTO = [
   { t: '⑦ 保留の色で、先読み！', bon: [2, 0], say: 'あわわ……！ いろが変わったよ！？', b: ['保留のランプは、<b>色</b>で当たりそうな度合いを教えてくれるよ。<b>青</b>はふつう、<b>緑</b>は少しチャンス、<b>赤</b>はかなりアツい！ そして<b>虹色</b>が出たら……覚悟してね。', '回している最中に<b>予告</b>（ボンちゃんが横切る、画面が光る、など）が出ると、期待が高まるよ。ただし、予告が出ても外れることはあるし、出なくても当たることもあるんだ。', '保留の色も予告も、あくまで<b>お楽しみの演出</b>。当たりやすさを変えるものではないよ。'] },
   { t: '⑧ リーチ！', bon: [0, 1], say: 'リーチ！ ここからが本番でしょ！ アタシの勝負、見てなさい！', b: ['3つの図柄のうち2つがそろうと<b>リーチ</b>！ 最後の1つがそろえば大当たりだよ。', 'リーチには、ボンが1人で出てくるものや、みんなで協力するもの、<b>にじボン</b>が出てくる特別なものなどがあるよ。特別なほど、アツい！', '外れたときも落ち込まないで。リーチが見られるだけでも、ちょっとお得だよ。', '見たくない演出は、画面の<b>演出スキップ</b>ボタンで飛ばせるよ。'] },
   { t: '⑨ 図柄はボンちゃんたち', bon: [1, 2], say: 'みんな、わたしたちを応援してね〜！', b: ['図柄は、7人の<b>ボンちゃん</b>だよ。おこボン・にこボン・ひょえボン・もぐボン・ねむボン・てれボン、そして虹色の<b>にじボン</b>。', '大当たりするとその子が大活躍して、<b>図鑑</b>に登録されていくよ。メニューの「図鑑」で、集めた記録を見られるよ。', '図柄によって、大当たりのあとに<b>確変</b>になるか<b>時短</b>になるかが変わるよ。'] },
-  { t: '⑩ 景品交換所とガチャ', bon: [3, 1], say: '玉をためて、ガチャまわそ〜！ うち、わくわくするよ〜', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を使って遊べるよ。', '<b>ガチャ</b>は2種類。<b>ボンカード</b>（150玉）と<b>カスタムパーツ</b>（保留・予告の見た目）。パーツは300玉で、何回でも引けるよ。', '<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンに玉を贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
+  { t: '⑩ 景品交換所とガチャ', bon: [3, 1], say: '玉をためて、ガチャまわそ〜！ うち、わくわくするよ〜', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>ガチャ</b>は2種類。<b>ボンカード</b>（150UB）と<b>カスタムパーツ</b>（保留・予告の見た目）。パーツは300UBで、何回でも引けるよ。', '<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
   { t: '⑪ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'ほかにも、<b>台の枠</b>（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）、図柄の見せ方、BGMなどを選べるよ。ガチャで集めたパーツで、もっと増えていくよ。'] },
   { t: '⑫ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、ガチャで引いたカードの<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
   { t: '⑬ セーブと、困ったとき', bon: [3, 3], say: 'こまったときは、ここを見てね〜！ うち、ごはんつくって待ってるよ〜', b: ['遊んだ記録は、このブラウザの中に<b>自動で保存</b>されるよ。ブラウザのデータを消したり、機種を変えたりすると、消えてしまうんだ。', '大事なデータは、設定の<b>「データのバックアップ」</b>でコードを保存しておこう。別の端末では、そのコードを読み込めば続きから遊べるよ。', '表示がおかしいときや、新しい版に変えたいときは、画面右上の<b>「更新」</b>ボタンを押してね。セーブは消えないよ。', '光の演出が苦手なときは、設定で<b>「光の演出：弱め」</b>にできるよ。長く遊びすぎないよう、ときどき休けいしてね。'] },
@@ -2646,34 +2648,34 @@ function openSettings() {
 function openShop(tab) {
   const sh = G.shop; tab = tab === 'line' ? 'gacha' : (tab || 'gacha');
   const tabs = [['gacha', 'ガチャ'], ['coin', 'コイン'], ['cheer', '応援']];
-  let h = `<h2 style="font-size:22px">🎁 玉の景品交換所</h2><div style="text-align:center;font-weight:900;margin:4px 0 8px">持ち玉 <span style="font-size:20px;color:#c0560a">${totalBalls()}</span> 玉</div>`;
+  let h = `<h2 style="font-size:22px">🎁 玉の景品交換所</h2><div style="text-align:center;font-weight:900;margin:4px 0 4px">持ち玉 <span style="font-size:18px;color:#c0560a">${totalBalls()}</span> 玉 ／ 持ちUB <span style="font-size:20px;color:#c0560a">${bonOwn()}</span> UB</div><div style="background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:6px 10px;margin:0 0 8px;font-size:12px;font-weight:700;line-height:1.6;color:#6b4a1a">玉は先に<b>「UB（ユートピアボン）」</b>に両替してから、景品と交換するよ。いまは${RATES[save.rate].label}だから <b>1玉＝${save.rate}UB</b>。<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${[['100', '100玉'], ['1000', '1000玉'], ['all', 'ぜんぶ']].map(([k, n]) => `<button data-do="xch:${k}" style="flex:none;min-height:34px;border-radius:10px;border:2px solid #b57a12;background:${totalBalls() > 0 ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900;font-size:12px">${n}を両替</button>`).join('')}</div></div>`;
   h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">${tabs.map(([k, n]) => `<button data-tab="${k}" style="flex:none;min-height:36px;font-size:13px;border-radius:10px;border:2px solid ${k === tab ? '#b57a12' : '#d9c9a3'};background:${k === tab ? '#ffe08a' : '#fff'};color:#3a2a10;font-weight:800">${n}</button>`).join('')}</div>`;
   const card = 'background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:8px 10px;margin:6px 0;font-weight:700;line-height:1.6;font-size:13px';
   const btn = (id, label, ok) => `<button data-do="${id}" style="flex:none;width:100%;min-height:38px;margin-top:6px;border-radius:10px;border:2px solid #b57a12;background:${ok ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900">${label}</button>`;
   if (tab === 'line') {
-    h += '<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">玉と交換して、ボンたちのセリフを集めよう（1人3つ）。</div>';
+    h += '<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">UBと交換して、ボンたちのセリフを集めよう（1人3つ）。</div>';
     SHOP_LINES.forEach((ls, i) => {
       h += `<div style="${card}"><b>${SYMBOL_NAMES[i]}</b>`;
-      ls.forEach((t, k) => { const got = sh.lines[i + '_' + k]; h += got ? `<div style="margin-top:4px">「${esc(t)}」</div>` : `<div style="margin-top:4px;color:#8a7a50">？？？？？？？</div>${btn('line:' + i + ':' + k, `${SHOP_LINE_COST[k]} 玉で交換`, totalBalls() >= SHOP_LINE_COST[k])}`; });
+      ls.forEach((t, k) => { const got = sh.lines[i + '_' + k]; h += got ? `<div style="margin-top:4px">「${esc(t)}」</div>` : `<div style="margin-top:4px;color:#8a7a50">？？？？？？？</div>${btn('line:' + i + ':' + k, `${SHOP_LINE_COST[k]} UBで交換`, bonOwn() >= SHOP_LINE_COST[k])}`; });
       h += '</div>';
     });
   } else if (tab === 'gacha') {
-    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">ガチャは2種類。ほしいものに合わせて選べるよ（ボンカードは${GACHA_PRICE.bon}玉、ほかは${GACHA_PRICE.parts}玉で1回・何回でも）。引いた回数 ${sh.pulls}回</div>`;
+    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">ガチャは2種類。ほしいものに合わせて選べるよ（ボンカードは${GACHA_PRICE.bon}、ほかは${GACHA_PRICE.parts}UBで1回・何回でも）。引いた回数 ${sh.pulls}回</div>`;
     Object.keys(GACHA_KIND).forEach(k => {
       const [nm, , ok] = GACHA_KIND[k], ids = GACHA_W.map((w, i) => i).filter(i => GACHA_W[i] > 0 && ok(i)), have = ids.filter(i => G.gacha.cards[i]).length;
-      h += `<div style="${card}"><b>${nm}</b><br><span style="font-size:12px;font-weight:700">集めた ${have} / ${ids.length} 種</span>${btn('gacha:' + k, `${GACHA_PRICE[k]} 玉で引く`, totalBalls() >= GACHA_PRICE[k])}</div>`;
+      h += `<div style="${card}"><b>${nm}</b><br><span style="font-size:12px;font-weight:700">集めた ${have} / ${ids.length} 種</span>${btn('gacha:' + k, `${GACHA_PRICE[k]} UBで引く`, bonOwn() >= GACHA_PRICE[k])}</div>`;
     });
     if (sh.last !== undefined && sh.last >= 0) h += cardView(sh.last, false);
   } else if (tab === 'coin') {
     const ex = sh.extra | 0, can = ex < SHOP_EXTRA_MAX;
-    h += `<div style="${card}">🪙 ボンコインと交換：${SHOP_COIN_COST}玉で1枚（いまの所持 ${save.coins} / ${COIN.max}）${btn('coin', `${SHOP_COIN_COST} 玉で1枚もらう`, totalBalls() >= SHOP_COIN_COST && save.coins < COIN.max)}</div>`;
-    h += `<div style="${card}">📦 コインの所持上限を増やす：いま ${COIN.max}枚（最大 ${5 + SHOP_EXTRA_MAX}枚）${can ? btn('extra', `${SHOP_EXTRA_COST[ex]} 玉で上限+1`, totalBalls() >= SHOP_EXTRA_COST[ex]) : '<div style="margin-top:6px;color:#2e7d4b">最大まで増やしたよ！</div>'}</div>`;
+    h += `<div style="${card}">🪙 ボンコインと交換：${SHOP_COIN_COST}UBで1枚（いまの所持 ${save.coins} / ${COIN.max}）${btn('coin', `${SHOP_COIN_COST} UBで1枚もらう`, bonOwn() >= SHOP_COIN_COST && save.coins < COIN.max)}</div>`;
+    h += `<div style="${card}">📦 コインの所持上限を増やす：いま ${COIN.max}枚（最大 ${5 + SHOP_EXTRA_MAX}枚）${can ? btn('extra', `${SHOP_EXTRA_COST[ex]} UBで上限+1`, bonOwn() >= SHOP_EXTRA_COST[ex]) : '<div style="margin-top:6px;color:#2e7d4b">最大まで増やしたよ！</div>'}</div>`;
   } else {
     const order = [0, 1, 2, 3, 4, 5, 6].sort((a, b) => (sh.cheer[b] || 0) - (sh.cheer[a] || 0));
-    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">玉を寄付して、好きなボンを応援しよう。${SHOP_CHEER_UNIT}玉＝${SHOP_CHEER_UNIT}ポイント。1000ポイントごとに称号が上がるよ。</div>`;
+    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">UBを寄付して、好きなボンを応援しよう。${SHOP_CHEER_UNIT}UB＝${SHOP_CHEER_UNIT}ポイント。1000ポイントごとに称号が上がるよ。</div>`;
     order.forEach((i, r) => {
       const pt = sh.cheer[i] || 0, lv = shopLv(i), nxt = lv >= 4 ? 4000 : (lv + 1) * 1000;
-      h += `<div style="${card}"><b>${r + 1}位　${SYMBOL_NAMES[i]}</b>${lv ? `　<span style="color:#c0560a">【${SHOP_TITLES[lv]}】</span>` : ''}<div style="height:8px;border-radius:5px;background:#eadfba;margin:4px 0;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, pt / nxt * 100)}%;background:linear-gradient(90deg,#ff9f1c,#e0356a)"></i></div><span style="font-size:11px;color:#8a6a30">${pt} pt${lv >= 4 ? '（殿堂入り！）' : ` ／ 次の称号まで ${nxt - pt}`}</span>${btn('cheer:' + i, `${SHOP_CHEER_UNIT} 玉で応援する`, totalBalls() >= SHOP_CHEER_UNIT)}</div>`;
+      h += `<div style="${card}"><b>${r + 1}位　${SYMBOL_NAMES[i]}</b>${lv ? `　<span style="color:#c0560a">【${SHOP_TITLES[lv]}】</span>` : ''}<div style="height:8px;border-radius:5px;background:#eadfba;margin:4px 0;overflow:hidden"><i style="display:block;height:100%;width:${Math.min(100, pt / nxt * 100)}%;background:linear-gradient(90deg,#ff9f1c,#e0356a)"></i></div><span style="font-size:11px;color:#8a6a30">${pt} pt${lv >= 4 ? '（殿堂入り！）' : ` ／ 次の称号まで ${nxt - pt}`}</span>${btn('cheer:' + i, `${SHOP_CHEER_UNIT} 玉で応援する`, bonOwn() >= SHOP_CHEER_UNIT)}</div>`;
     });
   }
   openSub(h + closeBtn);
@@ -2681,6 +2683,7 @@ function openShop(tab) {
   box.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => openShop(b.dataset.tab));
   box.querySelectorAll('[data-do]').forEach(b => b.onclick = () => {
     const [act, a, c] = b.dataset.do.split(':');   // gacha:種類
+    if (act === 'xch') { const tot = totalBalls(); let n = a === 'all' ? tot : Math.min(+a, tot); if (n <= 0) { toast('両替できる玉がないよ'); return; } const m = Math.min(n, totalBalls()); let r = m; const g = k => { const t = Math.min(r, state[k]); state[k] -= t; r -= t; }; g('box'); g('shimo'); g('have'); sh.bon = bonOwn() + m * save.rate; saveGame(); toast(`${m}玉を ${m * save.rate}UBに両替したよ`); updateUI(); renderMenu(); openShop(tab); return; }
     if (act === 'line') { if (!shopSpend(SHOP_LINE_COST[+c])) return; sh.lines[a + '_' + c] = 1; }
     else if (act === 'gacha') {
       if (!shopSpend(GACHA_PRICE[a] || SHOP_GACHA_COST)) return;
@@ -2767,7 +2770,7 @@ const QUIZ_PACHI = [
 const QUIZ_GAME = [
   Q('玉の景品交換所は、メニューのどこにある？', ['「続きから」のすぐ下', '一番下', '設定の中', 'タイトルの上'], 'メニューの「続きから」のすぐ下にあるよ。'),
   Q('ガチャは全部で何種類？', ['2種類', '1種類', '5種類', '10種類'], 'ボンカードとカスタムパーツの2種類だよ。'),
-  Q('ボンカードのガチャは、何玉で引ける？', ['150玉', '300玉', '1000玉', '10玉'], 'ボンカードは150玉。ほかは300玉だよ。'),
+  Q('ボンカードのガチャは、何UBで引ける？（UB＝ユートピアボン）', ['150UB', '300UB', '1000UB', '10UB'], 'ボンカードは150UB。ほかは300だよ。玉は先に両替するよ。'),
   Q('推しボンを選ぶと、色が変わらないのは？', ['ボタンの色', '液晶', '盤面', '玉と釘'], '液晶・盤面・玉・釘が推しボンの色になるよ。'),
   Q('通常変動曲の2曲は？', ['UTOPIA SPIN!!! と UTOPIA TONIGHT', 'WORLD PRISM と UTOPIA PRISM', 'BONBON FEVER!! と UTOPIA SPIN!!!', 'ボンちゃんマーチ と WORLD PRISM'], '通常変動曲は「UTOPIA SPIN!!!」と「UTOPIA TONIGHT」。期待度が高いほど「SPIN!!!」が流れやすいよ。'),
   Q('Bontifyを開いている間に流れる曲は？', ['WORLD PRISM', 'UTOPIA SPIN!!!', 'BONBON FEVER!!', 'ボンちゃんマーチ'], 'Bontifyでは「WORLD PRISM」が流れるよ。'),
@@ -3243,7 +3246,7 @@ const BF_TRACKS = [
   { id: 43, src: 'theme:1', title: "にこボンは友だちを連れてきたがるのだ。この台に、七人みんなで座れるとよいのだがな", cond: { k: 'spins', n: 280 } },
   { id: 44, src: 'spin2', title: "確率はおよそ三百分の一。当たらぬ日があるのは当然なのだ。それでも回すのが、人というものであるな", cond: { k: 'plays', n: 14 } },
   { id: 45, src: 'theme:6', title: "予告が出ても、外れる日はあるのだ。予告とは、期待を盛る演出なのである。盛るのは、我輩の得意分野であるがな！", cond: { k: 'wins', n: 22 } },
-  { id: 46, src: 'spin2', title: "景品交換所では、たまった玉をコインやガチャに替えられるのだ。現金には替えられぬ、安心の仕組みである", cond: { k: 'plays', n: 16 } },
+  { id: 46, src: 'spin2', title: "景品交換所では、玉をいったん「UB（ユートピアボン）」に両替してから、コインやガチャに替えるのだ。一円は一、四円は四。現金には替えられぬ、安心の仕組みである", cond: { k: 'plays', n: 16 } },
   { id: 47, src: 'spin2', title: "「ボンでもわかるパチンコ」は、そなたの味方である。わからぬときは、設定から開くがよいぞ", cond: { k: 'spins', n: 330 } },
   { id: 48, src: 'theme:2', title: "さくしゃボンの好物は柿らしいのだ。それゆえ、我輩も柿が好きなのだぞ。偶然ではないのだぞ", cond: { k: 'kaku', n: 2 } },
   { id: 49, src: 'special', title: "データカウンターには、連チャン数や大当たりの履歴が出るのだ。自慢したくなったら、結果を画像でシェアするがよい", cond: { k: 'spins', n: 380 } },
@@ -3402,7 +3405,45 @@ function openBontify() {
   bgmStop(); bgmPlay('prism');   // にじボンのテーマ曲を流す
 }
 
-loadGame(); bfFab(); const __lr = loginCheck(); renderMenu(); if (__lr) showLogin(__lr);
+
+/* ---------- にじボンのチュートリアル（はじめて開いたときだけ） ---------- */
+const TUT_KEY = 'bonutopia_tut';
+const TUT_PAGES = [
+  ['うむ！ 初めてであるか。心配は無用なのだ。我輩が、ほんの少しだけ教えてやろう！', '玉を打ち出して、台の真ん中にある<b>スタートチャッカー</b>（小さな入口）に入れるのだ。入るたびに、液晶の<b>ルーレット</b>が回るぞ。'],
+  ['図柄がそろえば、それが<b>大当たり</b>なのだ！', '大当たり中は<b>アタッカー</b>（大きな入口）が開いて、玉がどんどん増えるのだぞ。ボンたちも、みんなで祝ってくれるのだ。'],
+  ['打ち方は二つあるのだ。', 'ふだんは<b>左打ち</b>、大当たり中や確変・時短中は<b>右打ち</b>なのだ。画面の「右打ち」ボタンで切りかえよ。間違えると、玉がムダになってしまうぞ。液晶にも指示が出るから、安心せよ。'],
+  ['ルーレットが回っている間に入った玉は、<b>保留</b>というのだ。', '最大8つまで、順番待ちができるのだぞ。保留の色は、青、緑、赤、虹の順に期待度が高い。虹が出たら……覚悟するがよい！'],
+  ['最後に、お金の話なのだ。', 'このゲームは<b>完全無料</b>・換金なしなのだ。遊ぶときは<b>ボンコイン1枚</b>で玉を借りるが、コインは1時間に1枚、自動で戻るのだぞ。たまった玉は、景品交換所で<b>UB（ユートピアボン）</b>に両替して、ガチャなどと交換できるのだ。'],
+];
+function tutFinish() { closeSub(); }
+function openTutorial(step, i) {
+  try { localStorage.setItem(TUT_KEY, '1'); } catch (e) {}
+  const im = (typeof howBonSrc === 'function') ? howBonSrc(6, 0) : '';
+  const say = t => `<div style="display:flex;align-items:flex-end;gap:8px;margin:2px 0 8px">${im ? `<img src="${im}" alt="" style="height:120px;max-width:40%;object-fit:contain">` : ''}<div style="flex:1;background:#fff;border:2.5px solid #d8a83a;border-radius:14px;padding:9px 11px;font-size:14px;font-weight:800;line-height:1.6;color:#3a2a10">${t}</div></div>`;
+  let h = '<div style="text-align:center;font-weight:900;font-size:19px;margin-bottom:4px">にじボンのごあいさつ</div>';
+  if (step === 'ask') {
+    h += say('我輩はにじボン。この「BON UTOPIA」の案内役なのだ！<br>……ところでお主は、<b>遊戯（パチンコ）をしたことがあるか？</b>');
+    h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px"><button class="big go" id="tutYes">ある（くわしいぞ）</button><button class="big" id="tutNo">ない（はじめて）</button></div>';
+    openSub(h);
+    $('tutYes').onclick = () => openTutorial('yes'); $('tutNo').onclick = () => openTutorial('teach', 0);
+  } else if (step === 'yes') {
+    h += say('ほう、経験者であるか！ ならば話は早いのだ。<br>この台は、左打ちと右打ちの切りかえや、確変・時短もある、本格派なのだぞ。<br>わからぬことがあれば、設定の「❓ 遊び方」を見るがよい。');
+    h += '<button class="big go" data-close="1" style="margin-top:8px">さっそく遊ぶ！</button>';
+    openSub(h);
+  } else {
+    const p = TUT_PAGES[i];
+    h += `<div style="text-align:center;font-size:12px;color:#7a6a4a;margin-bottom:6px">${i + 1} / ${TUT_PAGES.length}</div>` + say(p[0]) + `<p style="font-size:14px;line-height:1.75;margin:0 0 9px">${p[1]}</p>`;
+    h += '<div style="display:flex;gap:8px;margin-top:10px">' + (i > 0 ? '<button id="tutPrev" style="flex:none;width:96px">◀ まえ</button>' : '<span style="flex:none;width:96px"></span>') + '<span style="flex:1"></span>' + (i < TUT_PAGES.length - 1 ? '<button id="tutNext" class="go" style="flex:none;width:96px">つぎ ▶</button>' : '<button id="tutEnd" class="go" style="flex:none;width:120px">はじめる！</button>') + '</div>';
+    if (i === TUT_PAGES.length - 1) h += '<div style="text-align:center;margin-top:10px"><button id="tutMore" style="flex:none;width:auto;padding:6px 14px;font-size:12px">もっと詳しく知りたい（ボンでもわかるパチンコ）</button></div>';
+    openSub(h);
+    const pv = $('tutPrev'), nx = $('tutNext'), en = $('tutEnd'), mo = $('tutMore');
+    if (pv) pv.onclick = () => openTutorial('teach', i - 1); if (nx) nx.onclick = () => openTutorial('teach', i + 1);
+    if (en) en.onclick = () => closeSub(); if (mo) mo.onclick = () => { tutAfter = null; openHowTo(0); };
+  }
+}
+loadGame(); bfFab(); const __lr = loginCheck(); renderMenu();
+{ let seen = true; try { seen = !!localStorage.getItem(TUT_KEY) || (G.login && G.login.total > 1) || (state.plays | 0) > 0; } catch (e) {}
+  if (!seen) { tutAfter = () => { if (__lr) showLogin(__lr); }; openTutorial('ask'); } else if (__lr) showLogin(__lr); }
 
 /* ---------- メインループ ---------- */
 let last = performance.now(), acc = 0;
