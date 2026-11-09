@@ -356,7 +356,10 @@ setTimeout(() => { try { SYMBOLS.forEach((k, i) => { for (let n = 0; n < 6; n++)
 
 /* ---------- 抽選設定（確率・保留数はここで管理） ---------- */
 const LOTTERY = { prob: 319, holdMax: 8, resultTime: 1.6 };
-try { const sv = parseInt(localStorage.getItem('pachi_prob'), 10); if ([10, 99, 199, 319, 399].includes(sv)) LOTTERY.prob = sv; } catch (e) {}
+try { const sv = parseInt(localStorage.getItem('pachi_prob'), 10); if ([99, 199, 319, 399].includes(sv)) LOTTERY.prob = sv;   // 1/10のテスト台はデバッグモードのときだけ } catch (e) {}
+/* 台のスペック（確率ごとに「台の種類」が変わる）：確変中の確率の割り方・ラウンド数 */
+const MACH = { 10: { name: 'テスト台', div: 5, rounds: 10 }, 99: { name: '甘デジ', div: 3, rounds: 5 }, 199: { name: 'ライトミドル', div: 5, rounds: 8 }, 319: { name: 'ミドル', div: 7, rounds: 10 }, 399: { name: 'ハイミドル', div: 8, rounds: 12 } };
+const machOf = () => MACH[LOTTERY.prob] || MACH[319];
 
 /* 抽選：入賞した瞬間に結果を内部で確定する（演出は結果を変えない・演出側から抽選は呼ばない） */
 const SYM_DEFS = [];
@@ -625,7 +628,13 @@ function planDirection(res) {
     const id = wpick(yk.filter(k => !used[k]), k => YOKOKU[k][win ? 'winW' : 'loseW']); used[id] = 1;
     P.yokoku.push({ id, at: 1.4 + i * 3.2 + rnd() * 0.8, theme: 1 + Math.floor(rnd() * 2) });
   }
-  P.tier = Math.max(P.reach ? REACHES[P.reach].tier : 0, ...P.yokoku.map(y => YOKOKU[y.id].tier), P.premium ? 4 : 0);
+  // 激アツ・ゾーン（先読み）：保留に当たりがあるときは「ゾーン」が出やすい。見せ方だけで、当たりの結果は変えない
+  { const ahead = state.queue.some(q => q && q.win);
+    P.zone = ahead ? rnd() < 0.5 : (!win && rnd() < 0.03);
+    P.hot = win ? rnd() < 0.3 : rnd() < 0.025;
+    if (P.hot && (!P.reach || REACHES[P.reach].tier < 2)) { P.reach = win ? 'coop' : 'coop'; const L = 7.2 + rnd() * 1.0, R = L + 1.5; P.R = R; P.M = R + REACHES[P.reach].dur; P.stops = [L, P.M, R]; if (!win) { const ri = () => Math.floor(rnd() * n); const a = ri(); let b; do { b = ri(); } while (b === a); P.sym = [a, b, a]; } }
+    P.hotAt = P.R < 90 ? Math.max(1.2, P.R - 1.4) : 4.5; }
+  P.tier = Math.max(P.reach ? REACHES[P.reach].tier : 0, P.hot ? 3 : 0, ...P.yokoku.map(y => YOKOKU[y.id].tier), P.premium ? 4 : 0);
   return P;
 }
 
@@ -660,6 +669,7 @@ function onStart() {
   startNextSpin();
 }
 function startRounds(round, gained, premium, sym) {
+  if (!round || round <= 1) BONUS.rounds = machOf().rounds;
   if (typeof sym === 'number') bonus.sym = sym; MODE.k = 'bonus'; MODE.left = 0;
   lcd.phase = 'rounds'; lcd.t = 0; bonus.round = round || 1; bonus.gained = gained || 0; bonus.premium = !!premium;
   bonus.v = (round || 1) >= BONUS.rounds;   // 最終ラウンドから再開したときは、Vは入ったことにする
@@ -685,6 +695,7 @@ function updateLCD(dt) {
   if (ph === 'spin') {
     const P = lcd.plan;
     P.yokoku.forEach((y, i) => { if (t >= y.at) once('yk' + i, () => { if (!lcd.skipped) playYokokuSe(y.id); dm('yk'); dexMark('yk', y.id); if (y.id === 'cutin') bonSeen(P.chars[0]); if (y.id === 'niji-appear') bonSeen(6); if (y.id === 'seven-bons') for (let b = 0; b < 7; b++) bonSeen(b); }); });
+    if (P.hot && t >= P.hotAt) once('hot', () => { if (!lcd.skipped) { sfxHot(); toast('激アツ！！'); } });
     for (let k = 0; k < (P.gi | 0); k++) if (t >= P.giAt[k]) once('gi' + k, () => { if (!lcd.skipped) sfxGi(k); });
     if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
     P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i); } });
@@ -892,6 +903,9 @@ function drawSpinScreen(c) {
     else { c.fillStyle = 'rgba(255,216,107,.3)'; c.font = 'bold 30px "Zen Maru Gothic", sans-serif'; c.fillText('?', bx + 32, by + 40); }
     c.strokeStyle = (reach && i === 1) ? '#ffd86b' : 'rgba(255,255,255,.35)'; c.lineWidth = (reach && i === 1) ? 3 : 1.5; roundRect(c, bx, by, 64, 78, 8); c.stroke();
   }
+  // ゾーン・激アツ（見せ方）
+  if (spin && P && P.zone && !lcd.skipped) { const pulse = 0.5 + 0.5 * Math.sin(t * 6); c.save(); c.strokeStyle = `rgba(190,120,255,${0.55 + 0.35 * pulse})`; c.lineWidth = 4; c.strokeRect(lx + 2, ly + 2, lw - 4, lh - 4); c.fillStyle = 'rgba(120,60,200,.16)'; c.fillRect(lx, ly, lw, lh); c.restore(); outText(c, 'ZONE', lx + lw - 34, ly + 12, 13, '#e8c8ff'); }
+  if (spin && P && P.hot && !lcd.skipped && t >= P.hotAt && t < P.hotAt + 1.8) { const tr = t - P.hotAt, a = tr < 0.2 ? tr / 0.2 : Math.max(0, 1 - (tr - 1.2) / 0.6); c.save(); c.globalAlpha = 0.35 * Math.min(1, a) * (0.6 + 0.4 * Math.sin(tr * 30)); c.fillStyle = '#ff2a2a'; c.fillRect(lx, ly, lw, lh); c.restore(); c.save(); c.globalAlpha = Math.min(1, a); outText(c, '激アツ！！', lx + lw / 2, ly + lh / 2 - 6 + Math.sin(tr * 25) * 2, 40, '#ffe14d', '#7a0010'); c.restore(); }
   // 予告
   if (spin && P) P.yokoku.forEach(y => { const tr = t - y.at; if (tr >= 0 && tr <= YOKOKU[y.id].dur) { c.save(); drawYokoku(c, y, tr, YOKOKU[y.id].dur, P); c.restore(); { const fx = fxDesign(); if (fx !== 'none') drawYkFx(c, fx, tr, YOKOKU[y.id].dur); }; } });
   // 擬似連
@@ -1849,14 +1863,14 @@ const DEBUG_CODE = '8284';
   const close = () => ov.classList.remove('show');
   const apply = () => {
     const v = document.getElementById('dbgIn').value.trim(); close();
-    if (debugMode) { debugMode = false; badge.style.display = 'none'; toast('デバッグモード OFF'); return; }
+    if (debugMode) { debugMode = false; badge.style.display = 'none'; if (LOTTERY.prob === 10) { LOTTERY.prob = 319; try { localStorage.setItem('pachi_prob', '319'); } catch (e) {} updProbChip(); } toast('デバッグモード OFF'); return; }
     if (v === DEBUG_CODE) { debugMode = true; badge.style.display = 'block'; state.have = Math.max(state.have, 250); toast('デバッグモード ON：打ち放題！Bontifyの曲も全部解放'); if ($('menu').classList.contains('show')) renderMenu(); }
     else toast('番号が違うよ');
   };
   document.getElementById('dbgOk').addEventListener('click', apply);
   document.getElementById('dbgNg').addEventListener('click', close);
   document.getElementById('dbgIn').addEventListener('keydown', e => { if (e.key === 'Enter') apply(); });
-  dbgToggle = () => { if (debugMode) { debugMode = false; badge.style.display = 'none'; toast('デバッグモード OFF'); if ($('menu').classList.contains('show')) renderMenu(); } else open(); };
+  dbgToggle = () => { if (debugMode) { debugMode = false; badge.style.display = 'none'; if (LOTTERY.prob === 10) { LOTTERY.prob = 319; try { localStorage.setItem('pachi_prob', '319'); } catch (e) {} updProbChip(); } toast('デバッグモード OFF'); if ($('menu').classList.contains('show')) renderMenu(); } else open(); };
   document.getElementById('dbgTap').addEventListener('click', () => dbgToggle());
   document.getElementById('ttlDbg').addEventListener('click', () => dbgToggle());
 })();
@@ -1956,9 +1970,9 @@ $('vol2').addEventListener('input', e => { snd.bgm = e.target.value / 100; });
 $('prob').value = String(LOTTERY.prob);
 $('prob').addEventListener('change', e => {
   LOTTERY.prob = parseInt(e.target.value, 10); try { localStorage.setItem('pachi_prob', String(LOTTERY.prob)); } catch (err) {}
-  toast('大当たり確率を 1/' + LOTTERY.prob + ' にしました（次の入賞から）'); updProbChip();
+  toast('台を「' + machOf().name + '」(1/' + LOTTERY.prob + '・' + machOf().rounds + 'R)に変えたよ（次の入賞から）'); updProbChip();
 });
-function updProbChip() { const b = $('bProb'); if (b) b.textContent = '🎰 確率 1/' + LOTTERY.prob; }
+function updProbChip() { const b = $('bProb'); if (b) b.textContent = '🎰 ' + machOf().name + ' 1/' + LOTTERY.prob; }
 updProbChip();
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -1974,7 +1988,14 @@ const YUU_SPINS = 800;   // 遊タイム：大当たりなしで通常のまま8
 const KAKU_SPINS = 50;   // 確変（ST）の回転数。この回転数で当たらなければ通常（左打ち）に戻る。数字を変えれば調整できる
 const KAKU_SYMS = new Set([1, 3, 5, 6, 14, 15]);  // 数字2・4・6・7、STAR、FEVER の大当たりは確変
 const supportOn = () => MODE.k === 'kaku' || MODE.k === 'jitan';
-function probNow() { return MODE.k === 'kaku' ? Math.max(2, Math.round(LOTTERY.prob / 7)) : LOTTERY.prob; }
+function probNow() { return MODE.k === 'kaku' ? Math.max(2, Math.round(LOTTERY.prob / machOf().div)) : LOTTERY.prob; }
+/* 期待値・ボーダー（目安）：1000円＝250玉。確変の割合は図柄の重みから概算 */
+function borderInfo() {
+  const m = machOf(), p = 1 / LOTTERY.prob, pay = m.rounds * BONUS.perRound * BONUS.perBall * 0.95, q = 1 - Math.pow(1 - 1 / Math.max(2, Math.round(LOTTERY.prob / m.div)), KAKU_SPINS), chain = 1 / (1 - 0.4 * q);
+  const gain = p * pay * chain;   // 1回転あたりの期待出玉
+  const border = 250 / gain / 1;   // 1000円(250玉)でこの回転数回れば、ちょうどトントン
+  return { border, gain, chain, pay };
+}
 const todayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const newG = () => ({ login: { last: '', streak: 0, total: 0 }, daily: { date: '', m: {}, claimed: {} }, shop: { lines: {}, extra: 0, cheer: [0, 0, 0, 0, 0, 0, 0], pulls: 0 }, gacha: { date: '', cards: {} },
   dex: { sym: {}, symSeen: {}, yk: {}, rc: {}, sp: {}, bon: {} }, rec: { bestChain: 0, kaku: 0, jitan: 0, seven: 0, premium: 0, den: 0, gacha: 0, quizOk: 0, quizAll: 0 }, ach: {}, chain: 0, quiz: { date: '', count: 0, ok: 0, asked: [] }, life: { spins: 0, wins: 0, plays: 0 }, hist: [], lastWinSp: 0 });
@@ -2509,6 +2530,9 @@ function openData() {
   const best = hist.reduce((m, h) => Math.max(m, h.g | 0), 0);
   let h = '<h2 style="font-size:22px">データカウンター</h2>';
   h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0;font-size:13px"><div class="coinbar" style="margin:0">前回の大当たりから<br><b style="font-size:22px">${since}</b> 回転</div><div class="coinbar" style="margin:0">最高連チャン<br><b style="font-size:22px">${G.rec.bestChain || 0}</b> 連</div><div class="coinbar" style="margin:0">大当たり回数<br><b style="font-size:20px">${G.life.wins || 0}</b> 回</div><div class="coinbar" style="margin:0">1回の最高出玉<br><b style="font-size:20px">${best}</b> 玉</div></div>`;
+  { const bi = borderInfo(), sh = state.shot | 0, sp = state.spins | 0, rate = sh >= 25 ? sp / (sh / 250) : null;
+    h += `<div class="coinbar" style="margin:0 0 6px;font-size:13px">台　<b>${machOf().name}</b>　1/${LOTTERY.prob}　${machOf().rounds}ラウンド<br>ボーダー目安　<b style="font-size:17px">1000円で ${bi.border.toFixed(1)} 回転</b><br>`
+      + (rate === null ? '<small>いまの回転率は、玉を25発以上打つと出るよ</small>' : `いまの回転率　<b style="font-size:17px">${rate.toFixed(1)}</b> 回転/1000円<br><small>${rate >= bi.border ? '回るぞ！ ボーダーより上だよ' : 'ちょっと回らないかも……ボーダーより下だよ'}（1000円あたり 約${Math.round(rate * bi.gain - 250) > 0 ? '+' : ''}${Math.round(rate * bi.gain - 250)}玉の期待値・目安）</small>`) + '</div>'; }
   { const yu = Math.max(0, YUU_SPINS - (G.yuu | 0)); h += `<div class="coinbar" style="margin:0 0 6px;font-size:13px">${MODE.k === 'normal' ? `遊タイムまで あと <b style="font-size:18px">${yu}</b> 回転（時短${JITAN_SPINS}回転）` : '遊タイムは通常のときにたまるよ'}</div>`; }
   { const TT = [[0, 'ボンの見習い'], [2, 'ちょい連チャンボン'], [3, '連チャンボン'], [5, '連チャンの達人'], [8, 'ユートピアの住人'], [10, '伝説のボン'], [15, 'にじボンの友だち']];
     const bc = G.rec.bestChain || 0; let ti = 0; TT.forEach((t, i) => { if (bc >= t[0]) ti = i; });
@@ -2702,7 +2726,7 @@ function openSettings() {
   h += row('音', `<div class="bgmsel"><button id="stSnd" class="${snd.mute ? '' : 'on'}">音 ${snd.mute ? 'OFF' : 'ON'}</button><button id="stCalm" class="${calm ? 'on' : ''}">光の演出：${calm ? '弱め' : 'ふつう'}</button></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:8px;color:#3a2a10">効果音<input type="range" id="stSe" min="0" max="100" value="${Math.round(snd.se * 100)}" style="flex:1"></label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">BGM<input type="range" id="stBgm" min="0" max="100" value="${Math.round(snd.bgm * 100)}" style="flex:1"></label>`);
-  if (isPlay) h += row('台の確率（大当たり）', `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr)">${[10, 99, 199, 319, 399].map(p => `<button data-prob="${p}" class="${LOTTERY.prob === p ? 'on' : ''}">1/${p}${p === 10 ? '<small>テスト</small>' : ''}</button>`).join('')}</div><div style="font-size:11px;color:#8a6a30;margin-top:4px">変えると、次の入賞から反映されるよ。</div>`);
+  if (isPlay) h += row('台の種類（大当たりの確率・ラウンド）', `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr)">${[10, 99, 199, 319, 399].filter(p => p !== 10 || debugMode).map(p => `<button data-prob="${p}" class="${LOTTERY.prob === p ? 'on' : ''}">1/${p}<small>${MACH[p].name}・${MACH[p].rounds}R</small></button>`).join('')}</div><div style="font-size:11px;color:#8a6a30;margin-top:4px">変えると、次の入賞から反映されるよ。</div>`);
   else h += row('台の確率（大当たり）', `<div style="font-size:12px;color:#6b4a1a">いまは 1/${LOTTERY.prob}。遊んでいる最中に、画面の「🎰 確率」から変えられるよ。</div>`);
   h += row('ほか', `<div class="bgmsel" style="grid-template-columns:repeat(2,1fr)"><button id="stHow">❓ 遊び方</button><button id="stData">📊 データ</button><button id="stCust">🎨 カスタム</button><button id="stShare">📸 シェア</button></div>`);
   h += `<div class="bgmsel" style="grid-template-columns:repeat(2,1fr);margin-top:12px"><button id="stBak">データのバックアップ</button><button id="stReload">最新版に読み込み直す</button></div><div style="font-size:11px;color:#8a6a30;margin-top:4px;line-height:1.5">バックアップのコードを保存しておけば、アプリを入れ直してもデータをもどせるよ。「読み込み直す」はデータを消さずに最新のページを取り直すよ。</div>`;
