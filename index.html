@@ -523,7 +523,7 @@ function drawHoldShape(c, d, x, y, col, k, has) {
     if (has) {
       const bi = BONI[k] != null ? BONI[k] : 2, im = artRaw(bi, 's', 0);
       c.beginPath(); c.arc(x, y, 9, 0, 7); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8; c.fill(); c.shadowBlur = 0;
-      const hf = d === 'artp' ? holdFaceImg(bi) : null, tall = d === 'artp' && !hf ? artRaw(bi, 'p', 0) : null;
+      const hf = d === 'art' ? holdFaceImg(bi) : null, tall = d === 'artp' ? artRaw(bi, 'p', 0) : null;   // デフォルメ＝新しい顔(おこ・ひょえ)／等身＝等身イラストの顔まわり
       if (tall) { const w = tall.naturalWidth, h = tall.naturalHeight, sz = Math.min(w, h * 0.4); c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(tall, (w - sz) / 2, 0, sz, sz, x - 9, y - 9, 18, 18); c.restore(); }
       else if (hf) { c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(hf, x - 9, y - 9, 18, 18); c.restore(); }
       else if (im) { const w = im.naturalWidth, h = im.naturalHeight, sz = Math.min(w, h * 0.62); c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(im, (w - sz) / 2, 0, sz, sz, x - 9, y - 9, 18, 18); c.restore(); }
@@ -550,7 +550,7 @@ function drawHoldShape(c, d, x, y, col, k, has) {
 const partPrev = {};
 function holdPreview(d) {
   if (partPrev['h' + d]) return partPrev['h' + d];
-  const ready = (d !== 'artp' || ([0, 2].every(i => holdFaceImg(i)) && [3, 6].every(i => artRaw(i, 'p', 0)))) && (d !== 'bon' || [0, 2, 3, 6].every(i => { const im = holdBonSprite(i); return im.complete && im.naturalWidth; })) && (d !== 'art' || [0, 2, 3, 6].every(i => artRaw(i, 's', 0)));
+  const ready = ((d !== 'art' || [0, 2].every(i => holdFaceImg(i))) && (d !== 'artp' || [0, 2, 3, 6].every(i => artRaw(i, 'p', 0)))) && (d !== 'bon' || [0, 2, 3, 6].every(i => { const im = holdBonSprite(i); return im.complete && im.naturalWidth; })) && (d !== 'art' || [0, 2, 3, 6].every(i => artRaw(i, 's', 0)));
   const cv = document.createElement('canvas'); cv.width = 180; cv.height = 44; const c = cv.getContext('2d');
   c.fillStyle = '#2a1850'; roundRect(c, 0, 0, 180, 44, 10); c.fill();
   ['blue', 'green', 'red', 'rainbow'].forEach((k, i) => { const col = k === 'rainbow' ? '#ffd24d' : HOLD_COL[k][0]; drawHoldShape(c, d, 24 + i * 44, 22, col, k, true); });
