@@ -466,7 +466,7 @@ const skinCol = (sub, def) => { const ot = oshiTone(); if (ot && ot[sub]) return
 const skinCol0 = (sub, def) => def;   // 着せ替え（液晶・盤面の色パーツ）は廃止
 const PART_RARE = { 6: 1, 11: 1, 15: 1, 26: 1, 33: 1, 46: 1, 53: 1, 54: 1 };
 const CARD_N = 30;   // 16〜19番は欠番（ボン以外の色の着せ替えは廃止）
-const GACHA_W = [8, 8, 8, 8, 8, 8, 3, 7, 7, 7, 7, 4, 5, 5, 5, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 6, 6, 6, 3, 1];   // 40〜46＝デフォルメ版／47〜53＝顔アップ版／54＝ボン大集合
+const GACHA_W = [8, 8, 8, 8, 8, 8, 3, 7, 7, 7, 7, 0, 5, 5, 5, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 6, 6, 6, 3, 1];   // 40〜46＝デフォルメ版／47〜53＝顔アップ版／54＝ボン大集合
 const GACHA_KIND = { bon: ['ボンカード', '🎁', i => i < 7 || i >= 40], parts: ['カスタムパーツ（保留・予告）', '🎨', i => i >= 7 && i < 16] };
 const GACHA_PRICE = { bon: 150, parts: 300 };
 function gachaRoll(kind) {
@@ -496,7 +496,7 @@ function applyUiTheme() {
 const saveCustom = () => { try { localStorage.setItem('bonutopia_custom', JSON.stringify(custom)); } catch (e) {} };
 setTimeout(() => { try { applyUiTheme(); } catch (e) {} }, 0);
 ['lcd', 'board'].forEach(k => { if (['lcd-sakura', 'lcd-star', 'board-pink', 'board-gold'].includes(custom[k])) custom[k] = 'none'; });
-const holdDesign = () => (custom.hold === 'dot' || custom.hold === 'art' || partOwned(custom.hold)) ? custom.hold : 'dot';
+const holdDesign = () => (custom.hold === 'dot' || custom.hold === 'art' || custom.hold === 'artp' || (custom.hold !== 'bon' && partOwned(custom.hold))) ? custom.hold : 'dot';
 const fxDesign = () => (custom.fx !== 'none' && partOwned(custom.fx)) ? custom.fx : 'none';
 const holdBonImg = {};
 function holdBonSprite(i) { if (!holdBonImg[i]) { const im = new Image(); im.src = bonArt(i); holdBonImg[i] = im; } return holdBonImg[i]; }
@@ -519,12 +519,13 @@ function drawHoldShape(c, d, x, y, col, k, has) {
     else { c.strokeStyle = 'rgba(255,255,255,.2)'; c.lineWidth = 4; c.stroke(); }
     return;
   }
-  if (d === 'art') {
+  if (d === 'art' || d === 'artp') {   // art＝デフォルメ／artp＝等身
     if (has) {
       const bi = BONI[k] != null ? BONI[k] : 2, im = artRaw(bi, 's', 0);
       c.beginPath(); c.arc(x, y, 9, 0, 7); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8; c.fill(); c.shadowBlur = 0;
-      const hf = holdFaceImg(bi);
-      if (hf) { c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(hf, x - 9, y - 9, 18, 18); c.restore(); }
+      const hf = d === 'artp' ? holdFaceImg(bi) : null, tall = d === 'artp' && !hf ? artRaw(bi, 'p', 0) : null;
+      if (tall) { const w = tall.naturalWidth, h = tall.naturalHeight, sz = Math.min(w, h * 0.4); c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(tall, (w - sz) / 2, 0, sz, sz, x - 9, y - 9, 18, 18); c.restore(); }
+      else if (hf) { c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(hf, x - 9, y - 9, 18, 18); c.restore(); }
       else if (im) { const w = im.naturalWidth, h = im.naturalHeight, sz = Math.min(w, h * 0.62); c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(im, (w - sz) / 2, 0, sz, sz, x - 9, y - 9, 18, 18); c.restore(); }
       c.beginPath(); c.arc(x, y, 9, 0, 7); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1.2; c.stroke();
     } else { c.beginPath(); c.arc(x, y, 9, 0, 7); c.fillStyle = 'rgba(255,255,255,.14)'; c.fill(); c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = 1; c.stroke(); }
@@ -534,9 +535,7 @@ function drawHoldShape(c, d, x, y, col, k, has) {
     if (has) {
       const im = holdBonSprite(BONI[k] != null ? BONI[k] : 2);
       c.beginPath(); c.arc(x, y, 9, 0, 7); c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 8; c.fill(); c.shadowBlur = 0;
-      const hf2 = holdFaceImg(BONI[k] != null ? BONI[k] : 2);
-      if (hf2) { c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(hf2, x - 9, y - 9, 18, 18); c.restore(); }
-      else if (im.complete && im.naturalWidth) {   // 顔のアップ：絵の上のほう（頭）だけを丸く切り出す
+      if (im.complete && im.naturalWidth) {   // 顔のアップ：絵の上のほう（頭）だけを丸く切り出す
         const bi = BONI[k] != null ? BONI[k] : 2, F = HOLD_FACE[bi] || [0, 0, 1], w = im.naturalWidth, h = im.naturalHeight, sz = w * F[2];
         c.save(); c.beginPath(); c.arc(x, y, 8.4, 0, 7); c.clip(); c.drawImage(im, w * F[0], h * F[1], sz, sz, x - 9, y - 9, 18, 18); c.restore();
       }
@@ -551,7 +550,7 @@ function drawHoldShape(c, d, x, y, col, k, has) {
 const partPrev = {};
 function holdPreview(d) {
   if (partPrev['h' + d]) return partPrev['h' + d];
-  const ready = (d !== 'bon' || [0, 2, 3, 6].every(i => { const im = holdBonSprite(i); return im.complete && im.naturalWidth; })) && (d !== 'art' || [0, 2, 3, 6].every(i => artRaw(i, 's', 0)));
+  const ready = (d !== 'artp' || ([0, 2].every(i => holdFaceImg(i)) && [3, 6].every(i => artRaw(i, 'p', 0)))) && (d !== 'bon' || [0, 2, 3, 6].every(i => { const im = holdBonSprite(i); return im.complete && im.naturalWidth; })) && (d !== 'art' || [0, 2, 3, 6].every(i => artRaw(i, 's', 0)));
   const cv = document.createElement('canvas'); cv.width = 180; cv.height = 44; const c = cv.getContext('2d');
   c.fillStyle = '#2a1850'; roundRect(c, 0, 0, 180, 44, 10); c.fill();
   ['blue', 'green', 'red', 'rainbow'].forEach((k, i) => { const col = k === 'rainbow' ? '#ffd24d' : HOLD_COL[k][0]; drawHoldShape(c, d, 24 + i * 44, 22, col, k, true); });
@@ -3281,8 +3280,9 @@ function openCustom(tab) {
     h += '<div class="bgmh">保留ランプの見た目（変わるのは見た目だけ。当たりやすさは同じ）</div><div class="bgmsel">';
     const hd = holdDesign();
     h += opt('hold', 'dot', hd === 'dot', 'ふつう（まる）', '', false, holdPreview('dot'));
-    h += opt('hold', 'art', hd === 'art', 'ボンのイラスト', '色でボンが変わる', false, holdPreview('art'));
-    Object.keys(PARTS).filter(id => PARTS[id].kind === 'hold').forEach(id => { const p = PARTS[id]; h += opt('hold', p.key, hd === p.key, p.name, '', !partOwned(p.key), holdPreview(p.key)); });
+    h += opt('hold', 'art', hd === 'art', 'ボンのイラスト(デフォルメ)', '色でボンが変わる', false, holdPreview('art'));
+    h += opt('hold', 'artp', hd === 'artp', 'ボンのイラスト(等身)', '色でボンが変わる', false, holdPreview('artp'));
+    Object.keys(PARTS).filter(id => PARTS[id].kind === 'hold' && PARTS[id].key !== 'bon').forEach(id => { const p = PARTS[id]; h += opt('hold', p.key, hd === p.key, p.name, '', !partOwned(p.key), holdPreview(p.key)); });
     h += '</div>';
   } else if (tab === 'yk') {
     const fd = fxDesign();
