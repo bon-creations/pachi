@@ -1441,6 +1441,7 @@ function step(h) {
     const sp = Math.hypot(b.vx, b.vy);
     if (sp > CONFIG.maxSpeed) { b.vx *= CONFIG.maxSpeed / sp; b.vy *= CONFIG.maxSpeed / sp; }
     b.x += b.vx * h; b.y += b.vy * h;
+    if (b.x < RAIL_X + 3 && b.y > RAIL_TOP - 10 && Math.abs(b.vy) < 320) { const k = Math.pow(0.0004, h); b.vx *= k; if (b.vy < 0) b.vy *= k; else if (b.vy > 520) b.vy = 520; }   /* 左の発射レーンを戻ってくる玉：左右に跳ね合わず、壁にそって静かに落ちる */
     collideWalls(b);
     collideRail(b);
     collideRoute(b);
