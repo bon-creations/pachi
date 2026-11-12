@@ -624,7 +624,7 @@ function planDirection(res) {
   // 停止タイミング（図柄ごとに別々）
   if (P.reach) { const L = 7.2 + rnd() * 1.0, R = L + 1.5; P.R = R; P.M = R + REACHES[P.reach].dur; P.stops = [L, P.M, R]; }
   else { const a = 6.5 + rnd() * 0.8; P.stops = [a, a + 1.6 + rnd() * 0.4, a + 3.2 + rnd() * 0.6]; P.M = P.stops[2]; }   // 実機のように、ゆっくり変動する
-  P.gi = +wpick(['0', '1', '2'], k => (win ? [55, 28, 17] : [88, 9, 3])[+k]); P.giAt = [2.2, 4.6];   // 擬似連（回数が多いほど期待）
+  P.gi = +wpick(['0', '1', '2'], k => (win ? [55, 28, 17] : [88, 9, 3])[+k]); P.giAt = [2.2, 4.6];   // 回り直し演出（回数が多いほど期待。「擬似連」の文字は出さない）
   P.btn = (P.reach && !P.premium && rnd() < 0.55) ? { at: P.R + 0.7, done: false } : null;   // ボタン演出
   lcd.btnWait = false; try { hidePush(); } catch (e) {}
   // 予告
@@ -705,7 +705,8 @@ function updateLCD(dt) {
     if (P.hot && t >= P.hotAt) once('hot', () => { if (!lcd.skipped) { sfxHot(); toast('激アツ！！'); } });
     for (let k = 0; k < (P.gi | 0); k++) if (t >= P.giAt[k]) once('gi' + k, () => { if (!lcd.skipped) sfxGi(k); });
     if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
-    P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i); } });
+    P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i, !!lcd.res.win, !!P.reach); } });
+    lcd._tk = (lcd._tk || 0) + dt; if (lcd._tk > 0.12 && !lcd.skipped && !lcd.btnWait && !(lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2])) { lcd._tk = 0; sfxRoll(); }
     if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true)) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); });
     if (lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2]) {
       if (lcd.res.win || state.queue.length === 0 || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // 連続で回転するとき（ハズレで次の保留がある）は、曲を止めずに続ける
@@ -932,7 +933,7 @@ function drawSpinScreen(c) {
   // 予告
   if (spin && P) P.yokoku.forEach(y => { const tr = t - y.at; if (tr >= 0 && tr <= YOKOKU[y.id].dur) { c.save(); drawYokoku(c, y, tr, YOKOKU[y.id].dur, P); c.restore(); { const fx = fxDesign(); if (fx !== 'none') drawYkFx(c, fx, tr, YOKOKU[y.id].dur); }; } });
   // 擬似連
-  if (spin && P && P.gi && !lcd.skipped) for (let k = 0; k < P.gi; k++) { const tr = t - P.giAt[k]; if (tr >= 0 && tr < 0.8) { c.save(); c.globalAlpha = 0.55 * (1 - tr / 0.8); c.fillStyle = k ? '#ff4d6d' : '#ffd24d'; c.fillRect(lx, ly, lw, lh); c.globalAlpha = 1; outText(c, `擬似連 ${k + 2}`, lx + lw / 2, ly + lh / 2 - 10 + Math.sin(tr * 30) * 2, 30 + (1 - tr / 0.8) * 6, k ? '#fff2a0' : '#fff'); c.restore(); } }
+  if (spin && P && P.gi && !lcd.skipped) for (let k = 0; k < P.gi; k++) { const tr = t - P.giAt[k]; if (tr >= 0 && tr < 0.8) { c.save(); c.globalAlpha = 0.55 * (1 - tr / 0.8); c.fillStyle = k ? '#ff4d6d' : '#ffd24d'; c.fillRect(lx, ly, lw, lh); c.globalAlpha = 1; c.restore(); } }
   // リーチ
   if (reach && !lcd.skipped) { c.save(); drawReachScene(c, P.reach, t - P.R, P); c.restore(); const rt = REACH_TINT[custom.reach] && REACH_TINT[custom.reach][1]; if (rt) { c.fillStyle = `rgba(${rt},.24)`; c.fillRect(lx, ly, lw, lh); } }
   // 信頼度ランク（いま出ている予告・リーチの強さ。弱★ → 激アツ★★★★）
@@ -1200,7 +1201,19 @@ function sfxDenOpen() { noise(0.05, 0.25, 1500); tone(700, 0.08, 'square', 0.14,
 function sfxDenClose() { noise(0.04, 0.2, 1200); tone(900, 0.07, 'square', 0.12, 500); }                                                                  // 電チューが閉じる：パタン
 function sfxZone() { tone(220, 0.5, 'sawtooth', 0.2, 440); tone(330, 0.5, 'triangle', 0.18, 660, 0.05); noiseBP(0.5, 0.18, 400, 2200, 1.6); }              // ゾーン：ゴゴゴ……
 function sfxChucker() { [880, 1175, 1568].forEach((f, i) => tone(f, 0.16, 'square', 0.18, 0, i * 0.07)); }
-function sfxReelStop(i) { tone(420 + i * 90, 0.07, 'square', 0.2); }
+function sfxReelStop(i, win, reach) {   /* 図柄が止まる音：ガコッ（重み）＋カチッ（かどの音）＋チーン（図柄の音）を重ねる。最後の1つは結果で変わる */
+  const last = i === 2;
+  tone(160 - i * 10, 0.1, 'triangle', 0.38, 60); noise(0.035, 0.3, 2600); tone(2600, 0.02, 'square', 0.08);
+  tone(520 + i * 120, 0.09, 'square', 0.16, 0, 0.012); tone((520 + i * 120) * 1.5, 0.07, 'triangle', 0.1, 0, 0.02);
+  noiseBP(0.06, 0.1, 1800, 900, 1.2, 0.03);
+  if (i === 1 && reach) { tone(784, 0.35, 'sawtooth', 0.14, 700, 0.05); tone(988, 0.35, 'triangle', 0.14, 900, 0.08); }   // リーチ：2つ目で空気が張りつめる
+  if (last) {
+    if (win) { [784, 988, 1175, 1568].forEach((f, k) => tone(f, 0.22, 'triangle', 0.22, 0, 0.1 + k * 0.06)); noise(0.25, 0.14, 5000); }
+    else if (reach) { tone(330, 0.3, 'sawtooth', 0.2, 110, 0.06); noiseBP(0.28, 0.12, 900, 250, 1.1, 0.06); }
+    else tone(110, 0.14, 'triangle', 0.3, 60, 0.02);
+  }
+}
+function sfxRoll() { noise(0.022, 0.05, 3600); tone(1000 + Math.random() * 300, 0.014, 'square', 0.035); }   // 図柄が回っているあいだの「カラカラ」
 function sfxReach() { [660, 880, 1100].forEach((f, i) => tone(f, 0.18, 'sawtooth', 0.16, f * 1.3, i * 0.12)); }
 function sfxSuper() { [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'square', 0.2, 0, i * 0.09)); noise(0.3, 0.15, 3000); }
 function sfxHot() { tone(90, 0.7, 'sawtooth', 0.45, 45); for (let i = 0; i < 4; i++) { noise(0.12, 0.35, 900); tone(1400, 0.1, 'square', 0.2, 700, 0.15 + i * 0.14); } }
@@ -1997,7 +2010,7 @@ function togglePcFull() { try { if (document.fullscreenElement) document.exitFul
       $t('pcSpin', document.getElementById('sSpin').textContent); $t('pcWin', document.getElementById('sWin').textContent);
       const bi = oshiBon(), n = oshiPoseN(), key = bi + ':' + n, img = document.getElementById('pcOshi');
       if (key !== lastKey) { lastKey = key; const src = WALL_SRC[bi] || howBonSrc(bi, n); if (src && img.getAttribute('src') !== src) img.src = src; }
-      if (bi !== lastBi || n !== lastLineAt) { lastBi = bi; lastLineAt = n; $t('pcSay', oshiLine(bi, G.rec.bestChain || 0)); }
+      if (bi !== lastBi || n !== lastLineAt) { lastBi = bi; lastLineAt = n; $t('pcSay', oshiIdleLine(bi)); }
     } catch (e) {}
   }, 300);
   document.getElementById('pcFull').addEventListener('click', togglePcFull);
@@ -2659,6 +2672,18 @@ const OSHI_LINES = [
     high: ['じゃじゃーん！{n}連チャンなのだぞ！', '{n}連チャン！我輩、感服したぞ！', '{n}連チャン……お主、ユートピアの住人であるな！'],
     big: ['よく聞けい！この出玉、まさに大当たりなのだぞ！', '玉があふれておるぞ！わっはっは！', 'うむ！この出玉、語り継ぐがよいのだぞ！'] }];
 let oshiLast = '';
+const OSHI_IDLE = [   /* 画面横のひとこと：当たっていない普段のセリフ（「当たった」とは言わない） */
+  ['アタシがついてるんだから、どんと回しなさいよ！', 'ちょっと、ぼーっとしないの！勝負はこれからでしょ！', 'ふん、見ててあげるわ。さっさと回しなさい！'],
+  ['いっしょにのんびり回そ〜！', 'つかれてない？無理せず楽しくいこうね', 'わたし、応援してるよ！ポテト食べたくなっちゃった〜'],
+  ['あわわ……どきどきするね……', 'ボン、おうえんしてるよ！だいじょうぶだよ……ね？', 'ひとりにしないでね……いっしょにいてね'],
+  ['おなかすいたよ〜。おにぎり食べたいな〜', 'うち、応援してるよ〜！', 'もぐもぐ……ゆっくり回そうね〜'],
+  ['ふわぁ……ねむい……でも、おうえんしてる……', 'むにゃ……きみ、がんばって……', 'ホットミルク、のみたいね……'],
+  ['あ、あの……私、応援しています……！', 'どきどきします……そばにいても、いいですか……？', 'えへへ……いっしょに、がんばりましょう……'],
+  ['うむ！我輩が見守っておるぞ。安心して回すがよい！', '夢も、希望も、大当たりも！お主、楽しんでおるか？', 'よく聞けい！焦らず参ろうぞ！']];
+function oshiIdleLine(bi) {
+  const p = OSHI_IDLE[bi] || OSHI_IDLE[6]; let t = p[Math.floor(Math.random() * p.length)];
+  if (t === oshiLast) t = p[(p.indexOf(t) + 1) % p.length]; oshiLast = t; return t;
+}
 function oshiLine(bi, n) {
   const o = OSHI_LINES[bi], hist = Array.isArray(G.hist) ? G.hist : [], best = hist.reduce((m, h) => Math.max(m, h.g | 0), 0);
   let pool = (G.life.wins || 0) === 0 ? o.zero : n >= 5 ? o.high : n >= 2 ? o.mid : o.low;
