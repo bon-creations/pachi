@@ -88,7 +88,12 @@
   #pw { font-size: 11px; font-weight: 800; color: #7a4b00; margin-top: 6px; }
   #hint { font-size: 9px; color: #8a6a30; }
   #sideRow { display: flex; gap: 4px; width: 100%; margin-top: 3px; }
-  #sideRow button { min-height: 26px; padding: 2px 0; font-size: 11px; border-radius: 8px; }
+  #sideRow button { min-height: 36px; padding: 2px 0; font-size: 12px; border-radius: 9px; }   /* スマホで押しやすい大きさ */
+  button, #dial { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  #handleBox { position: relative; }
+  #firstHint { position: absolute; right: 4px; top: -28px; background: #ff7a1a; color: #fff; font-weight: 900; font-size: 12px; padding: 4px 10px; border-radius: 12px; white-space: nowrap; pointer-events: none; animation: fhBob 1s ease-in-out infinite; box-shadow: 0 2px 0 #b84a00; z-index: 5; }
+  #firstHint::after { content: ''; position: absolute; right: 36px; bottom: -7px; border: 6px solid transparent; border-top-color: #ff7a1a; border-bottom: 0; }
+  @keyframes fhBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   #sideRow button.sel { background: linear-gradient(#7fd0ff, #2f8ae0); border-color: #1b5fa8; box-shadow: 0 2px 0 #1b5fa8; text-shadow: 0 1px 0 rgba(0,0,0,.35); }
   #sideRow button#bR.sel { background: linear-gradient(#ffd45a, #ff9a00); border-color: #b86a00; box-shadow: 0 2px 0 #b86a00; }
   #pw.rt { color: #c76a00; } #pw.lt { color: #1b5fa8; }
@@ -219,7 +224,7 @@
         </div>
       </div>
       <div id="handleBox">
-        <div id="dial"><div id="knob"><i></i></div></div>
+        <div id="firstHint" style="display:none">押し続けて発射！</div><div id="dial"><div id="knob"><i></i></div></div>
         <div id="pw">強さ 72%</div>
         <div id="sideRow"><button id="bL">左打ち</button><button id="bR">右打ち</button></div>
         <div id="hint">回して調節 / 押し続けて発射</div>
@@ -625,6 +630,11 @@ function planDirection(res) {
   if (P.reach) { const L = 7.2 + rnd() * 1.0, R = L + 1.5; P.R = R; P.M = R + REACHES[P.reach].dur; P.stops = [L, P.M, R]; }
   else { const a = 6.5 + rnd() * 0.8; P.stops = [a, a + 1.6 + rnd() * 0.4, a + 3.2 + rnd() * 0.6]; P.M = P.stops[2]; }   // 実機のように、ゆっくり変動する
   P.gi = +wpick(['0', '1', '2'], k => (win ? [55, 28, 17] : [88, 9, 3])[+k]); P.giAt = [2.2, 4.6];   // 回り直し演出（回数が多いほど期待。「擬似連」の文字は出さない）
+  P.up = null;   // リーチの格上がり：途中で一段上のリーチに発展する（当たりのときに多い）
+  if (P.reach && !P.premium && REACHES[P.reach].tier < 2 && rnd() < (win ? 0.5 : 0.1)) {
+    const to = REACHES[P.reach].tier === 0 ? 'bon' : 'coop'; P.up = { to, at: P.R + REACHES[P.reach].dur * 0.55 };
+    if (P.up.at < P.M - 0.3) { P.M = P.up.at + REACHES[to].dur; P.stops[1] = P.M; } else P.up = null;
+  }
   P.btn = (P.reach && !P.premium && rnd() < 0.55) ? { at: P.R + 0.7, done: false } : null;   // ボタン演出
   lcd.btnWait = false; try { hidePush(); } catch (e) {}
   // 予告
@@ -652,7 +662,7 @@ const once = (k, fn) => { if (!lcd.fired[k]) { lcd.fired[k] = 1; fn(); } };
 function startNextSpin() {
   if (lcd.phase !== 'idle' || state.queue.length === 0) return;
   dm('spin'); dm('spin200'); artVar++;
-  lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res);
+  lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res); holdUpgrade();
   lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; state.spins++; G.life.spins++; sfxSpinStart();
   if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
@@ -664,6 +674,14 @@ function pickHoldColor(win) {
   let r = Math.random() * 100;   // 見せ方専用の乱数（抽選には触れない）
   for (const k of ['blue', 'green', 'red', 'rainbow']) { if ((r -= w[k]) < 0) return k; }
   return 'blue';
+}
+/* 保留変化：変動が1つ進むたびに、残っている保留の色が上がることがある（青→緑→赤→虹）。見せ方だけで、当たりの結果は変わらない */
+function holdUpgrade() {
+  const ladder = ['blue', 'green', 'red', 'rainbow'];
+  for (const q of state.queue) {
+    if (!q || q.hc === 'rainbow') continue;
+    if (Math.random() < (q.win ? 0.3 : 0.05)) { q.hc = ladder[ladder.indexOf(q.hc || 'blue') + 1]; q.hshow = true; setTimeout(() => { if (q.hc === 'rainbow') sfxChance(); else sfxHoldUp(); }, 500); break; }
+  }
 }
 function onStart() {
   sfxChucker(); chuckT = 0.3;
@@ -682,7 +700,7 @@ function startRounds(round, gained, premium, sym) {
   bonus.open = false; bonus.gapT = 0; openRound(); bgmPlay(themeName());
   toast('右打ち！ 「右打ち」ボタンでハンドルを右に固定しよう');
 }
-function openRound() { bonus.count = 0; bonus.open = true; bonus.timer = 0; sfxRound(); }
+function openRound() { bonus.count = 0; bonus.open = true; bonus.timer = 0; sfxRound(); sfxAttOpen(); }
 function playYokokuSe(id) {
   const t = YOKOKU[id].tier;
   if (id === 'cutin' || id === 'niji-appear') sfxChara();
@@ -707,6 +725,7 @@ function updateLCD(dt) {
     if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
     P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i, !!lcd.res.win, !!P.reach); } });
     lcd._tk = (lcd._tk || 0) + dt; if (lcd._tk > 0.12 && !lcd.skipped && !lcd.btnWait && !(lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2])) { lcd._tk = 0; sfxRoll(); }
+    if (P.up && !lcd.skipped && t >= P.up.at) once('reachUp', () => { P.reach = P.up.to; P.R = t; dexMark('rc', P.reach); sfxReachUp(); toast('リーチ発展！！'); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); });
     if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true)) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); });
     if (lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2]) {
       if (lcd.res.win || state.queue.length === 0 || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // 連続で回転するとき（ハズレで次の保留がある）は、曲を止めずに続ける
@@ -730,7 +749,7 @@ function updateLCD(dt) {
   } else if (ph === 'rounds') {
     if (bonus.open) {
       bonus.timer += dt;
-      if (bonus.count >= BONUS.perRound || bonus.timer >= BONUS.roundTimeout) { bonus.open = false; bonus.gapT = 0; if (bonus.round < BONUS.rounds) sfxRoundEnd(); }
+      if (bonus.count >= BONUS.perRound || bonus.timer >= BONUS.roundTimeout) { bonus.open = false; bonus.gapT = 0; sfxAttClose(); if (bonus.round < BONUS.rounds) sfxRoundEnd(); }
     } else {
       bonus.gapT += dt;
       if (bonus.round >= BONUS.rounds) { lcd.phase = 'finish'; lcd.t = 0; bgmStop(); sfxFanfare(); endBonusMode(); saveGame(); try { if (bgmCfg.sel === 'auto') renderStatic(); } catch (e) {} try { showShareNow(); } catch (e) {} }
@@ -1201,6 +1220,12 @@ function sfxDenOpen() { noise(0.05, 0.25, 1500); tone(700, 0.08, 'square', 0.14,
 function sfxDenClose() { noise(0.04, 0.2, 1200); tone(900, 0.07, 'square', 0.12, 500); }                                                                  // 電チューが閉じる：パタン
 function sfxZone() { tone(220, 0.5, 'sawtooth', 0.2, 440); tone(330, 0.5, 'triangle', 0.18, 660, 0.05); noiseBP(0.5, 0.18, 400, 2200, 1.6); }              // ゾーン：ゴゴゴ……
 function sfxChucker() { [880, 1175, 1568].forEach((f, i) => tone(f, 0.16, 'square', 0.18, 0, i * 0.07)); }
+function sfxHoldUp() { tone(988, 0.08, 'square', 0.16); tone(1318, 0.08, 'square', 0.16, 0, 0.07); tone(1760, 0.14, 'triangle', 0.18, 0, 0.14); }
+function sfxReachUp() { tone(220, 0.45, 'sawtooth', 0.22, 880); noiseBP(0.4, 0.2, 500, 3000, 1.4); [784, 988, 1319].forEach((f, k) => tone(f, 0.2, 'square', 0.18, 0, 0.35 + k * 0.08)); }
+function sfxLend() { for (let k = 0; k < 7; k++) { noise(0.03, 0.16, 4200 + k * 150); tone(2400 + Math.random() * 1200, 0.03, 'square', 0.07, 0, k * 0.045); } tone(180, 0.1, 'triangle', 0.3, 70, 0.3); }   // 玉貸し：ジャラジャラ…ゴトン
+function sfxAttOpen() { noise(0.05, 0.3, 1400); tone(130, 0.12, 'triangle', 0.4, 60); tone(900, 0.08, 'square', 0.12, 1400, 0.03); }   // 大入賞口が開く「ガコン」
+function sfxAttClose() { noise(0.04, 0.25, 1100); tone(110, 0.14, 'triangle', 0.42, 50); }
+function sfxHandle() { noise(0.02, 0.25, 3000); tone(1400, 0.02, 'square', 0.12); tone(900, 0.03, 'square', 0.08, 0, 0.02); }   // ハンドルを回すカチッ
 function sfxReelStop(i, win, reach) {   /* 図柄が止まる音：ガコッ（重み）＋カチッ（かどの音）＋チーン（図柄の音）を重ねる。最後の1つは結果で変わる */
   const last = i === 2;
   tone(160 - i * 10, 0.1, 'triangle', 0.38, 60); noise(0.035, 0.3, 2600); tone(2600, 0.02, 'square', 0.08);
@@ -1294,7 +1319,7 @@ function fireBall() {
   balls.push({ x: 20 + Math.random() * 3, y: H - 30, vx: v * LANE_S + (Math.random() - 0.5) * 12, vy: -v, slow: 0 });
   if (!inBonus() && !debugMode) state.have--;
   state.shot++; dm('shot');
-  sfxFire(); sideWarn();
+  sfxFire(); sideWarn(); if (!G.life.fired) { G.life.fired = 1; const fh = document.getElementById('firstHint'); if (fh) fh.style.display = 'none'; }
   return true;
 }
 
@@ -1945,8 +1970,10 @@ const SIDE_ANGLE = { L: 0, R: 76 };
 function sideOf() { const p = powerOf(); return p < 0.6 ? 'L' : p >= 0.66 ? 'R' : 'M'; }
 let sideLock = null;   // 'L' / 'R'：ハンドルを固定中
 function setSide(k) { angleDeg = SIDE_ANGLE[k]; updateDial(); }
+let lastClickAng = 0;
 function updateDial() {
   $('knob').style.transform = `rotate(${angleDeg}deg)`;
+  if (Math.abs(angleDeg - lastClickAng) >= 9) { lastClickAng = angleDeg; try { sfxHandle(); } catch (e) {} }   /* ハンドルを回すと「カチカチ」 */
   const sd = sideOf();
   $('pw').textContent = `強さ ${Math.round(powerOf() * 100)}% ・ ${sd === 'L' ? '左打ち' : sd === 'R' ? '右打ち' : '中間'}`;
   $('pw').className = sd === 'L' ? 'lt' : sd === 'R' ? 'rt' : '';
@@ -2202,6 +2229,7 @@ function returnBalls() { state.have += balls.length; balls = []; }
 function hasSession() { return state.have + state.shimo > 0 || lcd.phase !== 'idle' || state.queue.length > 0 || !!pendingLoaded; }
 function beginPlay() {
   playing = true;
+  { const fh = document.getElementById('firstHint'); if (fh) fh.style.display = (G.life && !G.life.fired) ? 'block' : 'none'; }   /* 最初の1発を打つまで、ハンドルに案内を出す */
   try { if (!localStorage.getItem('bonutopia_howhint')) { localStorage.setItem('bonutopia_howhint', '1'); setTimeout(() => toast('わからないときは「設定」の「❓ 遊び方」を見てね'), 1800); } } catch (e) {}
   if (pendingLoaded) {
     const pd = pendingLoaded; pendingLoaded = null;
@@ -2266,7 +2294,7 @@ $('eRefill').addEventListener('click', () => { if (!useCoin()) return; state.hav
 $('eQuit').addEventListener('click', showMenu);
 $('r4').addEventListener('click', () => { if (!hasSession()) { save.rate = 4; saveGame(); } });
 $('r1').addEventListener('click', () => { if (!hasSession()) { save.rate = 1; saveGame(); } });
-$('bLend').addEventListener('click', () => { if (!playing) return; if (!useCoin()) { toast('ボンコインがないよ'); return; } state.have += RATES[save.rate].lend; saveGame(); sfxChucker(); toast(`貸玉 ${RATES[save.rate].lend}玉！（${save.rate}円）`); });
+$('bLend').addEventListener('click', () => { if (!playing) return; if (!useCoin()) { toast('ボンコインがないよ'); return; } state.have += RATES[save.rate].lend; saveGame(); sfxLend(); sfxChucker(); toast(`貸玉 ${RATES[save.rate].lend}玉！（${save.rate}円）`); });
 (function buildCab() {
   const row = document.getElementById('lampRow'); const cols = ['#ff4d4d', '#ff9f1c', '#ffe14d', '#3ddc84', '#3a8dff', '#7a5cff', '#d05cff'];
   for (let i = 0; i < 16; i++) { const l = document.createElement('i'); l.className = 'lamp'; l.style.setProperty('--c', cols[i % 7]); l.style.setProperty('--i', i); row.appendChild(l); }
@@ -2607,6 +2635,12 @@ function openData() {
     const mx = Math.max(1, ...hist.map(r => r.sp | 0)), H0 = 56;
     h += `<div style="font-size:12px;font-weight:800;margin:8px 0 4px">大当たりまでの回転数（左が古い・右が新しい）</div><div style="display:flex;align-items:flex-end;gap:2px;height:${H0 + 4}px;padding:2px;border:1px solid #0002;border-radius:8px;background:#fff8">`
       + hist.map(r => `<i title="${r.sp}回転" style="flex:1;min-width:2px;height:${Math.max(2, Math.round((r.sp | 0) / mx * H0))}px;background:${(r.sp | 0) >= 300 ? '#e0506a' : (r.sp | 0) <= 30 ? '#3f9a82' : '#e8b030'};border-radius:2px 2px 0 0"></i>`).join('') + `</div><div style="font-size:10px;color:#8a6a30">いちばん高い棒＝${mx}回転　緑：30回転以内　赤：300回転以上</div>`;
+    { /* スランプグラフ：回転数と出玉の流れ（直近の大当たりの獲得玉を積み上げ） */
+      let x = 0, y = 0; const pts = [[0, 0]]; hist.forEach(r => { x += r.sp | 0; y += (r.g | 0); pts.push([x, y]); });
+      const W = 300, H = 90, mx = Math.max(1, x), my = Math.max(1, ...pts.map(p => p[1]));
+      const path = pts.map(p => `${(p[0] / mx * W).toFixed(1)},${(H - p[1] / my * (H - 6) - 3).toFixed(1)}`).join(' ');
+      h += `<div style="font-size:12px;font-weight:800;margin:8px 0 4px">スランプグラフ（回転数→出玉）</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:#fffaf0;border:1px solid #0002;border-radius:8px"><line x1="0" y1="${H - 3}" x2="${W}" y2="${H - 3}" stroke="#0003"/><polyline points="${path}" fill="none" stroke="#e8802a" stroke-width="2.2" stroke-linejoin="round"/></svg><div style="font-size:10px;color:#8a6a30">横：回転数（${x}回転）　縦：出玉の合計（${y}玉）</div>`;
+    }
     const top = hist.map((r, i) => ({ sp: r.sp | 0, i })).sort((a, b) => b.sp - a.sp).slice(0, 5);
     h += '<div style="font-size:12px;font-weight:800;margin:8px 0 4px">ハマりランキング（直近30回のうち）</div>' + top.map((t, k) => `<div style="font-size:13px">${['🥇', '🥈', '🥉', '4位', '5位'][k]}　${t.sp} 回転</div>`).join('');
   }
@@ -3494,6 +3528,31 @@ const BF_TRACKS = [
   { id: 82, src: 'theme:6', title: "七人のボンがそろって、はじめて「ボンちゃんの世界」なのだ。そなたも、その一員であるぞ。うむ！", cond: { k: 'wins', n: 30 } },
   { id: 83, src: 'spin2', title: "ここまで聞いてくれたそなたに、礼を言うのだ。……我輩のつぶやきは、まだまだ続くのだぞ", cond: { k: 'spins', n: 600 } },
 ];
+/* 解放をはやく：回転数・回数の条件を半分にする（七色・プレミアムは運の要素なのでそのまま） */
+BF_TRACKS.forEach(t => { if (t.cond && t.cond.k !== 'seven' && t.cond.k !== 'premium') t.cond = { k: t.cond.k, n: Math.max(1, Math.ceil(t.cond.n / 2)) }; });
+/* 新しい機能の説明・ボンたちのつぶやき（条件はこの数字のまま） */
+BF_TRACKS.push(
+  { id: 84, src: 'spin2', title: "保留の色はな、変動が進むと変わることがあるのだ。青が緑になったら、我輩の目も見開くのだぞ", cond: { k: 'spins', n: 12 } },
+  { id: 85, src: 'special', title: "リーチの途中で、一段上のリーチへ「発展」することがあるのだ。「リーチ発展！」と出たら、背筋を伸ばすがよい", cond: { k: 'spins', n: 25 } },
+  { id: 86, src: 'spin2', title: "図柄が止まる音が、増えたのだ。ガコッ、カチッ、チーン。最後の一つは、結果で音が変わるのだぞ。耳をすますがよい", cond: { k: 'spins', n: 8 } },
+  { id: 87, src: 'spin2', title: "図柄が回っておる間は、小さく「カラカラ」と鳴っておるのだ。止まる前の静けさも、また味わい深いのだぞ", cond: { k: 'plays', n: 2 } },
+  { id: 88, src: 'spin2', title: "データカウンターには、スランプグラフが付いたのだ。出玉の波を眺めるのも、一興であるぞ", cond: { k: 'wins', n: 2 } },
+  { id: 89, src: 'theme:0', title: "おこボンの図柄は、ポーズちがいが十六種類あるのだ。「ふんっ」と怒った顔も、照れた顔も、みんなアタシだと本人は言うのだぞ", cond: { k: 'plays', n: 3 } },
+  { id: 90, src: 'theme:1', title: "にこボンの図柄は、手をふったり、拍手したり、十六の笑顔なのだ。見ておるだけで、こちらまで笑顔になるのだぞ", cond: { k: 'plays', n: 4 } },
+  { id: 91, src: 'theme:2', title: "ひょえボンの図柄は、おどろいた顔が多いのだ。当たったときの顔は、とくにかわいいのだぞ。……内緒であるぞ", cond: { k: 'plays', n: 5 } },
+  { id: 92, src: 'spin2', title: "推しボンをえらぶと、変動の図柄がその子の絵に変わるのだ。残りの子の絵も、これから増えていくのだぞ", cond: { k: 'spins', n: 30 } },
+  { id: 93, src: 'spin2', title: "ハンドルを回すと、カチカチと鳴るのだ。回す手応えがあると、打っておる気分になるであろう？", cond: { k: 'plays', n: 2 } },
+  { id: 94, src: 'spin2', title: "玉を借りるときは、ジャラジャラと玉が出てくるのだ。最後の「ゴトン」が、我輩のお気に入りなのだぞ", cond: { k: 'plays', n: 3 } },
+  { id: 95, src: 'bonus', title: "大入賞口が開くときは、ガコンと鳴るのだ。ラウンドごとに開いて閉じる。その音を数えるのも、また楽しいのだぞ", cond: { k: 'wins', n: 3 } },
+  { id: 96, src: 'theme:0', title: "おこボンは、保留が赤くなるたびに「あんた、見てなさいよ！」と言うのだ。顔は赤いが、保留の赤とは関係ないぞ", cond: { k: 'wins', n: 6 } },
+  { id: 97, src: 'theme:1', title: "にこボンは、保留が緑になると、にこにこ手をふるのだ。ポテトの色だから、だそうなのだぞ", cond: { k: 'wins', n: 7 } },
+  { id: 98, src: 'theme:3', title: "もぐボンは、図柄が止まる音が好きなのだ。おにぎりを握る音に似ておる、と言うのだぞ", cond: { k: 'spins', n: 35 } },
+  { id: 99, src: 'theme:4', title: "ねむボンは、図柄が止まる「ガコッ」で目をさますのだ。そして、すぐまた寝るのだぞ", cond: { k: 'spins', n: 45 } },
+  { id: 100, src: 'theme:5', title: "てれボンは、リーチが発展すると、そっと顔をかくすのだ。「どきどきします」と、小さな声で言うのだぞ", cond: { k: 'wins', n: 8 } },
+  { id: 101, src: 'theme:6', title: "リーチ発展は、我輩の演出の中でも、ひときわ心躍るのだ。格上がりの瞬間、我輩の髪も七色に染まるのだぞ！", cond: { k: 'wins', n: 9 } },
+  { id: 102, src: 'theme:2', title: "ひょえボンは、スランプグラフが苦手なのだ。山と谷が、こわいらしい。我輩が「雨のあとには虹が出るのだ」と教えたのだぞ", cond: { k: 'wins', n: 10 } },
+  { id: 103, src: 'spin2', title: "ここまで聞いてくれたそなたへ。新しい音も、新しい絵も、これからまだまだ増えるのだ。我輩のつぶやきと一緒に、楽しみにしておるがよい！", cond: { k: 'spins', n: 350 } }
+);
 let bfLogoN = 0;
 const bfLogo = (h) => { const u = 'bfg' + (bfLogoN++); return `<svg viewBox="0 0 150 36" height="${h}" role="img" aria-label="Bontify" style="display:block"><defs><linearGradient id="${u}" x1="0" x2="1"><stop offset="0" stop-color="#ff6b6b"/><stop offset=".25" stop-color="#ffd86b"/><stop offset=".5" stop-color="#69db7c"/><stop offset=".75" stop-color="#4dabf7"/><stop offset="1" stop-color="#b197fc"/></linearGradient></defs><circle cx="18" cy="18" r="17" fill="#1ed760"/><g fill="none" stroke-width="2.6" stroke-linecap="round"><path d="M6.5 25A11.5 11.5 0 0 1 29.5 25" stroke="#ff4d4d"/><path d="M10 25A8 8 0 0 1 26 25" stroke="#ffd43b"/><path d="M13.5 25A4.5 4.5 0 0 1 22.5 25" stroke="#fff"/></g><text x="42" y="26" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="23" fill="url(#${u})">Bontify</text></svg>`; };
 const BF_SRC_NAME = { fever: 'BONBON FEVER!!', spin2: 'UTOPIA SPIN!!!', spin3: 'UTOPIA TONIGHT', star: 'UTOPIA SPIN☆☆☆', special: 'SPECIAL REACH', bonus: 'BONUS', premium: 'SPECIAL BONUS' };
