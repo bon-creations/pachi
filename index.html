@@ -53,6 +53,9 @@
   .mi { background: rgba(255,255,255,.7); border: 1px solid #d3b062; border-radius: 6px; text-align: center; font-size: 9px; color: #7a5a10; padding: 1px 0; line-height: 1.15; }
   .mi b { display: block; font-size: 13px; color: #2a1a00; font-variant-numeric: tabular-nums; }
   #btns { grid-column: 1 / 3; display: flex; gap: 5px; }
+  #toolRow { grid-column: 1 / 3; display: flex; flex-wrap: wrap; gap: 4px; align-items: stretch; }
+  #toolRow button { flex: 1 1 40%; min-width: 0; min-height: 30px; padding: 0 4px; font-size: 12px; border-radius: 9px; white-space: nowrap; }
+  #toolRow .tchip { flex: 1 1 45%; min-width: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; min-height: 30px; font-size: 11px; font-weight: 800; border-radius: 9px; background: #fffbe8; border: 2px solid #e0b84a; color: #5a3a08; white-space: nowrap; }
   button { flex: 1; min-height: 34px; padding: 5px 4px; border-radius: 10px; border: 1px solid #a87b12; background: linear-gradient(#fffbe8, #efcf72); color: #4a3200; font-size: 12px; font-weight: 800; box-shadow: 0 2px 0 #a87b12, inset 0 1px 0 #fff; touch-action: manipulation; }
   button:active { transform: translateY(1px); box-shadow: 0 1px 0 #a87b12; }
   button:disabled { opacity: .45; }
@@ -205,11 +208,14 @@
         </div>
         <div id="btns">
           <button id="bAuto">連続発射 OFF</button>
-          <button id="bSpeed" style="flex:none;width:64px;padding:0">🔒倍速</button>
-          <button id="bBest" style="flex:none;width:92px;padding:0;display:none">🤖ベスト角度</button>
           <button id="bSkip">演出スキップ</button>
           <button id="bQuit">カスタム</button>
           <button id="bSet" aria-label="設定" style="flex:none;width:38px;padding:0">⚙</button>
+        </div>
+        <div id="toolRow">
+          <button id="bSpeed">🔒倍速</button>
+          <button id="bBest" style="display:none">🤖ベスト角度</button>
+          <span class="tchip" id="tmRate" style="display:none"></span><span class="tchip" id="tmPL" style="display:none"></span><span class="tchip" id="tmNav" style="display:none"></span><span class="tchip" id="tmCh" style="display:none"></span><span class="tchip" id="tmFo" style="display:none"></span><button id="bNail" style="display:none">🔍釘ヨミ</button>
         </div>
         <div id="opts" style="display:none">
           <button id="bProb">🎰 確率 1/319</button><button id="bHow">❓ 遊び方</button>
@@ -671,7 +677,7 @@ function startNextSpin() {
   if (lcd.phase !== 'idle' || state.queue.length === 0) return;
   dm('spin'); dm('spin200'); artVar++;
   lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res); holdUpgrade();
-  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; state.spins++; G.life.spins++; sfxSpinStart();
+  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; if (hasTool('omen') && lcd.res.win) { toast('🔔 前兆あり！ この変動は当たりだよ'); try { sfxChance(); } catch (e) {} } state.spins++; G.life.spins++; sfxSpinStart();
   if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
 }
@@ -1425,6 +1431,7 @@ function sideWarn() {
   toast(need === 'R' ? '右打ち！ 左に打つと玉がムダになるよ' : '左打ち！ 右に打つとヘソに入らないよ');
 }
 function fireBall() {
+  if (autoFire && hasTool('hold') && needSide() === 'L' && state.queue.length >= LOTTERY.holdMax) return false;
   if (!playing || (state.have <= 0 && !inBonus() && !debugMode)) return false;
   if (balls.length >= CONFIG.maxBallsOnBoard) return false;
   const v = speedOf() * (1 + (Math.random() - 0.5) * 0.03);
@@ -1579,13 +1586,57 @@ const TOOLS = [
   { id: 'speed', icon: '⏩', name: '倍速ボタン', price: 3000, desc: '玉の動きと図柄の変動を、2倍・3倍の速さで進める。打ち出しも速くなるよ。' },
   { id: 'guide', icon: '🎯', name: '玉の軌道ガイド', price: 4000, desc: 'いまのハンドルで打つと、玉がどこを通るかの予測線を盤面に出す（釘のはね方は毎回ちょっと変わるので、目安だよ）。' },
   { id: 'radar', icon: '📡', name: '保留レーダー', price: 5500, desc: '保留の中に「当たり」が入っていると、そのランプに「当」のしるしが出る。' },
+  { id: 'omen', icon: '🔔', name: '当たり前兆アラート', price: 4500, desc: '当たりの変動が始まった瞬間に、こっそり音とお知らせで教えてくれる。演出より先にわかるよ。' },
+  { id: 'nav', icon: '🧭', name: 'ヘソ入賞ナビ', price: 5000, desc: 'いまのハンドル角度で、玉がどれくらいの確率で入賞しそうかを％でいつも表示する。' },
+  { id: 'chain', icon: '🔥', name: '連チャンカウンター', price: 3000, desc: '今の連チャン数と、これまでの最高連チャンをいつも表示する。' },
+  { id: 'hold', icon: '⏸', name: 'オート保留消化', price: 3500, desc: '連続発射のとき、保留がいっぱいになったら自動で打つのをやめて、減ったらまた打ち始める（左打ちのとき）。玉のムダ打ちを減らせるよ。' },
+  { id: 'trail', icon: '✨', name: '玉の残像トレイル', price: 2500, desc: '玉の通ったあとに光の線がのこる。見た目だけのツール。' },
+  { id: 'nail', icon: '🔍', name: '釘ヨミ鑑定', price: 4000, desc: '「釘ヨミ」ボタンで、この台のヘソの入りやすさをS〜Dで鑑定してくれる。' },
+  { id: 'fortune', icon: '🍀', name: '今日の運勢', price: 3000, desc: '毎日かわるラッキー図柄を表示。その図柄で大当たりすると、UBのおまけがもらえる。' },
+  { id: 'autoR', icon: '➡️', name: '右打ち自動きりかえ', price: 4500, desc: '大当たりや時短・確変に入ったらハンドルを自動で右打ちに、終わったら左打ちに切りかえる。うっかり打ちミスがなくなるよ。' },
+  { id: 'meter', icon: '📊', name: '回転率メーター', price: 3500, desc: '遊んでいる画面に、いまの回転率（1000円あたり）とボーダーとの差をいつも表示する。' },
+  { id: 'ledger', icon: '💰', name: '収支メーター', price: 3000, desc: '遊び始めてからの玉の増減（収支）を、いつも画面に表示する。' },
   { id: 'auto', icon: '🤖', name: '自動ベスト角度', price: 8000, desc: '「ベスト角度」ボタンが使えるようになる。いまの打ち方（左打ち・右打ち）で、いちばん入賞しやすい角度を計算してハンドルを合わせてくれる。' },
 ];
 const hasTool = id => !!(G && G.shop && G.shop.tools && G.shop.tools[id]);
 function updTools() {
   const bs = $('bSpeed'); if (bs) { const on = hasTool('speed'), tx = on ? '倍速 ×' + simMul : '🔒倍速'; if (bs.textContent !== tx) bs.textContent = tx; bs.classList.toggle('on', on && simMul > 1); }
   const ba = $('bBest'); if (ba) { const d = hasTool('auto') ? '' : 'none'; if (ba.style.display !== d) ba.style.display = d; }
+  if (!playing) return;
+  const tr = $('tmRate'), tp = $('tmPL'), want = (el, on, tx) => { if (!el) return; const d = on ? '' : 'none'; if (el.style.display !== d) el.style.display = d; if (on && el.textContent !== tx) el.textContent = tx; };
+  { const sh = state.shot | 0, sp = state.spins | 0, rate = sh >= 25 ? sp / (sh / 250) : null, bi = borderInfo();
+    want(tr, hasTool('meter'), rate === null ? '回転率 ―' : `回転率 ${rate.toFixed(1)} (${rate >= bi.border ? '+' : ''}${(rate - bi.border).toFixed(1)})`); }
+  { if (sess0 === null) sess0 = totalBalls(); const d = totalBalls() - sess0; want(tp, hasTool('ledger'), `収支 ${d >= 0 ? '+' : ''}${d}玉`); if (tp) tp.style.color = d >= 0 ? '#1f7a3a' : '#b03030'; }
+  want($('tmCh'), hasTool('chain'), `連チャン ${G.chain | 0}（最高 ${G.rec.bestChain | 0}）`);
+  want($('tmNav'), hasTool('nav'), navPct === null ? '入賞率 計算中' : `入賞率 約${navPct}％`);
+  { const f = fortuneSym(); want($('tmFo'), hasTool('fortune'), `🍀 ラッキー図柄：${SYM_DEFS[f].label}`); }
+  { const bn = $('bNail'); if (bn) { const d = hasTool('nail') ? '' : 'none'; if (bn.style.display !== d) bn.style.display = d; } }
+  if (hasTool('autoR')) { const need = needSide(); if (need !== lastNeed) { lastNeed = need; if (need === 'R') { sideLock = 'R'; setSide('R'); toast('右打ちに自動で切りかえたよ'); } else { sideLock = null; if (sideOf() !== 'L') setSide('L'); updateDial(); toast('左打ちにもどしたよ'); } } }
 }
+let sess0 = null, lastNeed = 'L';
+/* ---- 新ツール ---- */
+let navPct = null, navKey = '', navBusy = false;
+async function navUpdate() {
+  if (!playing || !hasTool('nav') || navBusy || bestBusy || document.hidden) return;
+  const key = Math.round(angleDeg) + ':' + (denOpen() ? 1 : 0) + ':' + (attOpen() ? 1 : 0) + ':' + Math.floor(performance.now() / 6000);
+  if (key === navKey) return; navKey = key; navBusy = true;
+  try { let sc = 0; const N = 24; for (let k = 0; k < N; k++) sc += trialHit(angleDeg); navPct = Math.round(sc / N * 100); } catch (e) {}
+  navBusy = false;
+}
+setInterval(() => { try { navUpdate(); } catch (e) {} }, 1500);
+function fortuneSym() { const d = new Date(), n = d.getFullYear() * 400 + (d.getMonth() + 1) * 31 + d.getDate(); return ((n * 2654435761) >>> 0) % SYM_DEFS.length; }
+async function nailAppraise() {
+  if (bestBusy) return; bestBusy = true; const need = needSide(); toast('釘ヨミ中…'); const bn = $('bNail'); if (bn) bn.textContent = '鑑定中…';
+  try {
+    const lo = need === 'R' ? 44 : -135, hi = need === 'R' ? 135 : 26, N = 30; let best = 0;
+    for (let a = lo; a <= hi; a += 9) { let sc = 0; for (let k = 0; k < N; k++) sc += trialHit(a); best = Math.max(best, sc / N); await new Promise(r => setTimeout(r, 0)); }
+    const p = Math.round(best * 100), rank = p >= 75 ? 'S' : p >= 55 ? 'A' : p >= 38 ? 'B' : p >= 22 ? 'C' : 'D';
+    toast(`釘ヨミ：この台は【${rank}】（いちばん入る角度で約${p}％）`);
+  } catch (e) { toast('うまく鑑定できなかったよ'); }
+  bestBusy = false; if (bn) bn.textContent = '🔍釘ヨミ';
+}
+document.addEventListener('click', e => { if (e.target && e.target.id === 'bNail') nailAppraise(); });
+
 let guideCache = { key: '', pts: null };
 function predictPath(ang, quiet) {   // いまの角度で打った玉の通り道（音を出さない・ばらつきなしで1回だけ動かす）
   const keepA = angleDeg, keepR = Math.random, keepM = snd.mute; angleDeg = ang; Math.random = () => 0.5; snd.mute = true;
@@ -2100,6 +2151,7 @@ function draw() {
   ctx.fillStyle = 'rgba(25,8,50,.3)'; ctx.beginPath(); for (const b of balls) { ctx.moveTo((b.x + 1.8) * S + r * 0.92, (b.y + 2.4) * S); ctx.arc((b.x + 1.8) * S, (b.y + 2.4) * S, r * 0.92, 0, 7); } ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = r * 1.1; ctx.lineCap = 'round'; ctx.beginPath();
   for (const b of balls) { const sp2 = b.vx * b.vx + b.vy * b.vy; if (sp2 > 640000) { const k = 0.011; ctx.moveTo(b.x * S, b.y * S); ctx.lineTo((b.x - b.vx * k) * S, (b.y - b.vy * k) * S); } } ctx.stroke();
+  if (hasTool('trail')) { for (const b of balls) { (b.tr || (b.tr = [])).push(b.x, b.y); if (b.tr.length > 28) b.tr.splice(0, 2); } ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = r * 0.7; for (const b of balls) { const t = b.tr; if (!t || t.length < 4) continue; for (let i = 2; i < t.length; i += 2) { ctx.strokeStyle = `hsla(${(i * 9 + b.x) % 360},95%,70%,${i / t.length * .55})`; ctx.beginPath(); ctx.moveTo(t[i - 2] * S, t[i - 1] * S); ctx.lineTo(t[i] * S, t[i + 1] * S); ctx.stroke(); } } ctx.restore(); }
   for (const b of balls) ctx.drawImage(ballSprite, b.x * S - r, b.y * S - r);
   if (flash > 0) {
     ctx.fillStyle = `rgba(255,80,80,${flash * 0.5})`;
@@ -2324,6 +2376,7 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
   MODE.k = 'bonus'; MODE.left = 0;
   dexMark('sym', res.symIdx); if (res.symIdx >= 7 && res.symIdx <= 13) bonSeen(res.symIdx - 7);
   if (res.symIdx === SEVEN) G.rec.seven++;
+  if (hasTool('fortune') && res.symIdx === fortuneSym()) { G.shop.bon = bonOwn() + 300; toast('🍀 ラッキー図柄！ UBおまけ +300'); }
   if (typeof bgmCfg.sel === 'number') G.rec.oshiMask = (G.rec.oshiMask | 0) | (1 << bgmCfg.sel);   // どの推しボンで大当たりしたか（実績用。おまかせ設定のときは数えない）
   dm('win');
 }
