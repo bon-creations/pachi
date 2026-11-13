@@ -205,6 +205,7 @@
         </div>
         <div id="btns">
           <button id="bAuto">連続発射 OFF</button>
+          <button id="bSpeed" style="flex:none;width:64px;padding:0">倍速 ×1</button>
           <button id="bSkip">演出スキップ</button>
           <button id="bQuit">カスタム</button>
           <button id="bSet" aria-label="設定" style="flex:none;width:38px;padding:0">⚙</button>
@@ -400,6 +401,7 @@ const YOKOKU = {
   'rainbow-flash': { name: '虹色フラッシュ', tier: 3, winW: 10, loseW: 1, dur: 1.4 },
   'niji-appear': { name: 'にじボン登場',   tier: 3, winW: 8, loseW: 1, dur: 1.6 },
   'seven-bons':  { name: '7色ボンちゃん集合', tier: 3, winW: 7, loseW: 0.5, dur: 1.8 },
+  'oshi-call':   { name: '推しボンの呼びかけ', tier: 1, winW: 45, loseW: 14, dur: 1.9, oshi: true },   // 推しボンを選んでいるときだけ出る、推し専用の予告
 };
 const REACHES = {
   normal:  { name: 'ノーマルリーチ',   tier: 0, dur: 2.6, winW: 20, loseW: 60 },
@@ -625,6 +627,7 @@ function planDirection(res) {
   }
   P.chars = [0, 1, 2, 3, 4, 5, 6].sort(() => rnd() - 0.5);
   if (res.win && res.symIdx >= 7 && res.symIdx <= 13) P.chars[0] = res.symIdx - 7;
+  if (typeof bgmCfg.sel === 'number' && rnd() < 0.6) P.chars[0] = bgmCfg.sel;   // 推しボンを選んでいるときは、予告にその子が出やすい
   if (custom.ykChar !== 'auto' && bonOpen(+custom.ykChar)) P.chars = [0, 1, 2, 3, 4, 5, 6].map(() => +custom.ykChar);   // 予告に出るキャラを固定（見た目だけ）
   // 停止タイミング（図柄ごとに別々）
   if (P.reach) { const L = 7.2 + rnd() * 1.0, R = L + 1.5; P.R = R; P.M = R + REACHES[P.reach].dur; P.stops = [L, P.M, R]; }
@@ -639,7 +642,7 @@ function planDirection(res) {
   lcd.btnWait = false; try { hidePush(); } catch (e) {}
   // 予告
   const cnt = wpick(['0', '1', '2'], k => DIR_CFG.yokokuCount[win ? 'win' : 'lose'][+k]);
-  const yk = Object.keys(YOKOKU).filter(k => custom.yk[k] !== false), used = {};   // OFFにした予告は出さない（当たりやすさは変わらない）
+  const yk = Object.keys(YOKOKU).filter(k => custom.yk[k] !== false && (!YOKOKU[k].oshi || typeof bgmCfg.sel === 'number')), used = {};   // OFFにした予告は出さない（当たりやすさは変わらない）
   for (let i = 0; i < +cnt && yk.some(k => !used[k]); i++) {
     const id = wpick(yk.filter(k => !used[k]), k => YOKOKU[k][win ? 'winW' : 'loseW']); used[id] = 1;
     P.yokoku.push({ id, at: 1.4 + i * 3.2 + rnd() * 0.8, theme: 1 + Math.floor(rnd() * 2) });
@@ -703,7 +706,7 @@ function startRounds(round, gained, premium, sym) {
 function openRound() { bonus.count = 0; bonus.open = true; bonus.timer = 0; sfxRound(); sfxAttOpen(); }
 function playYokokuSe(id) {
   const t = YOKOKU[id].tier;
-  if (id === 'cutin' || id === 'niji-appear') sfxChara();
+  if (id === 'cutin' || id === 'niji-appear' || id === 'oshi-call') sfxChara();
   if (t === 0) sfxYk(); else if (t === 1 || t === 2) sfxChance(); else sfxHot();
 }
 function skipEffect() {
@@ -889,6 +892,20 @@ function drawYokoku(c, y, tr, dur, P) {
   else if (id === 'special-sym') { const bx = lx + 14 + 74, by = ly + 46, g = 0.5 + 0.5 * Math.sin(tr * 14); c.strokeStyle = `rgba(255,220,80,${g})`; c.lineWidth = 4; roundRect(c, bx - 3, by - 3, 70, 84, 10); c.stroke(); drawSym(c, Math.floor(tr * 14) % 2 ? 14 : 15, bx, by, 64, 78); }
   else if (id === 'rainbow-flash') { const g = c.createLinearGradient(lx, ly, lx + lw, ly + lh); RB.forEach((col, i) => g.addColorStop(i / 6, col)); c.save(); c.globalAlpha = calm ? 0.28 + Math.abs(Math.sin(tr * 1.5)) * 0.12 : Math.abs(Math.sin(tr * 7)) * 0.75; c.fillStyle = g; c.fillRect(lx, ly, lw, lh); c.restore(); }
   else if (id === 'niji-appear') { const e = ease(p * 2); nijiPose = 0; drawBonFull(c, 6, lx + lw / 2, ly + lh + 6, 70 + e * 70, Math.min(1, e + 0.2), false); outText(c, 'にじボン登場！', lx + lw / 2, ly + 40, 20, '#fff', '#7a1fd0'); }
+  else if (id === 'oshi-call') {   /* 推しボンの呼びかけ：推し専用の予告（ふきだしにその子の口ぐせ） */
+    const bi = typeof bgmCfg.sel === 'number' ? bgmCfg.sel : 0, e = ease(Math.min(1, p * 4)), out = p > 0.85 ? (p - 0.85) / 0.15 : 0, a = 1 - out;
+    const COL = ['#ff7a45', '#ffd23f', '#5b8cff', '#e8a25a', '#9b7bff', '#ff7eb6', '#7ad9ff'][bi] || '#ffd23f';
+    const LN = [['アタシに任せなさい！', '来るわよ、来る！', '見逃すんじゃないわよ！'], ['いけそう〜！', 'なんかいい予感！', 'ふふ、わくわくだね〜'], ['あわわ…きそう…！', 'ボン、ドキドキ…！', 'こ、これは……！'], ['おにぎりの予感〜！', 'もぐ…きそうだよ〜！', 'うち、わかるよ〜！'], ['むにゃ……きてる……', 'ねむけが吹っ飛んだ…', 'きみ……チャンス……'], ['あ、あの……きそうです！', 'ど、どきどきします……！', 'が、がんばって……！'], ['よく聞けい！熱いぞ！', '我輩の勘がうずくぞ！', '虹の予感じゃ！']][bi];
+    const line = LN[(P.pat + bi) % LN.length], bx = lx + 74, by = ly + lh - 120, bw = lw - 90;
+    c.save(); c.globalAlpha = a;
+    c.fillStyle = COL; c.globalAlpha = a * 0.28; c.fillRect(lx, by - 14, lw, 120); c.globalAlpha = a;
+    drawBonFull(c, bi, lx + 38 - (1 - e) * 90, ly + lh + 2, 92, 1, false);
+    c.translate((1 - e) * 60, 0);
+    c.fillStyle = '#fff'; c.strokeStyle = COL; c.lineWidth = 3; roundRect(c, bx, by, bw, 54, 14); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(bx + 2, by + 34); c.lineTo(bx - 14, by + 44); c.lineTo(bx + 4, by + 24); c.closePath(); c.fillStyle = '#fff'; c.fill(); c.stroke();
+    c.fillStyle = '#3a2a10'; c.font = '900 15px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(line, bx + bw / 2, by + 28, bw - 16);
+    c.restore();
+  }
   else if (id === 'seven-bons') { for (let i = 0; i < 7; i++) { const e = ease(p * 3 - i * 0.2); drawBonFull(c, i, lx + 18 + i * 34, ly + lh + 4 - Math.abs(Math.sin(tr * 8 + i)) * 8, 58 * e + 4, 1, false); } outText(c, '7色ボン集合！', lx + lw / 2, ly + 40, 18, '#fff', '#c2185b'); }
 }
 
@@ -1164,7 +1181,10 @@ function drawIntro() {
 }
 
 /* ---------- サウンド（WebAudio・外部ファイルなし） ---------- */
-const snd = { ac: null, se: 0.6, bgm: 0.5, mute: false, lastNail: 0 };
+const snd = { ac: null, se: 0.6, bgm: 0.5, ball: 0.6, ch: '', mute: false, lastNail: 0 };   // se=演出の音 / ball=玉・釘・入賞の音 / bgm=曲
+try { const v = JSON.parse(localStorage.getItem('bonutopia_vol') || 'null'); if (v) { ['se', 'bgm', 'ball'].forEach(k => { if (typeof v[k] === 'number' && v[k] >= 0 && v[k] <= 1) snd[k] = v[k]; }); } } catch (e) {}
+const saveVol = () => { try { localStorage.setItem('bonutopia_vol', JSON.stringify({ se: snd.se, bgm: snd.bgm, ball: snd.ball })); } catch (e) {} };
+const chVol = ch => ch === 'bgm' ? snd.bgm : (snd.ch === 'ball' ? snd.ball : snd.se);
 function AC() {
   if (!snd.ac) { try { snd.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
   if (snd.ac.state === 'suspended') snd.ac.resume();
@@ -1175,7 +1195,7 @@ function tone(f0, dur, type, gain, f1, delay, ch) {
   const t0 = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
   o.type = type || 'sine'; o.frequency.setValueAtTime(f0, t0);
   if (f1) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
-  const v = gain * (ch === 'bgm' ? snd.bgm : snd.se); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  const v = gain * chVol(ch); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
 }
 function noise(dur, gain, hp) {
@@ -1184,7 +1204,7 @@ function noise(dur, gain, hp) {
   for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
   const src = ac.createBufferSource(); src.buffer = buf;
   const f = ac.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp || 1500;
-  const g = ac.createGain(); g.gain.value = gain * snd.se;
+  const g = ac.createGain(); g.gain.value = gain * chVol();
   src.connect(f); f.connect(g); g.connect(ac.destination); src.start();
 }
 function noiseBP(dur, gain, f0, f1, q, delay) {   // 帯域ノイズ（周波数が動く）：玉がレールを走る「シャーッ」
@@ -1193,7 +1213,7 @@ function noiseBP(dur, gain, f0, f1, q, delay) {   // 帯域ノイズ（周波数
   for (let i = 0; i < len; i++) { const e = i / len; d[i] = (Math.random() * 2 - 1) * Math.min(1, e * 12) * (1 - e) * (1 - e * 0.3); }
   const t0 = ac.currentTime + (delay || 0), src = ac.createBufferSource(); src.buffer = buf;
   const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q || 2; f.frequency.setValueAtTime(f0, t0); f.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
-  const g = ac.createGain(); g.gain.value = gain * snd.se; src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t0);
+  const g = ac.createGain(); g.gain.value = gain * chVol(); src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t0);
 }
 function sfxFire() {
   /* 本物のハンドル：ソレノイドが玉を「カツッ」と叩き、玉がレールを「シャーッ」と走って盤面へ飛び出す */
@@ -1307,6 +1327,8 @@ function pushDone(manual) {
 }
 
 function sfxWin() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'square', 0.22, 0, i * 0.11)); }
+/* 玉まわりの音（打ち出し・釘・入賞・玉貸しなど）は「玉の音」のつまみで、演出の音とは別に調整できる */
+['sfxFire', 'sfxNail', 'sfxHit', 'sfxOut', 'sfxDenIn', 'sfxDenOpen', 'sfxDenClose', 'sfxLend', 'sfxAttOpen', 'sfxAttClose', 'sfxHandle', 'sfxCatch', 'sfxJara'].forEach(n => { const f = eval(n); eval(n + ' = function () { const o = snd.ch; snd.ch = "ball"; try { return f.apply(null, arguments); } finally { snd.ch = o; } }'); });
 
 let angleDeg = 0;            // ハンドル角度 (-135〜135)
 let firing = false, autoFire = false, fireTimer = 0;
@@ -1457,6 +1479,8 @@ function step(h) {
     if (sp > CONFIG.maxSpeed) { b.vx *= CONFIG.maxSpeed / sp; b.vy *= CONFIG.maxSpeed / sp; }
     b.x += b.vx * h; b.y += b.vy * h;
     if (b.x < RAIL_X + 3 && b.y > RAIL_TOP - 10 && Math.abs(b.vy) < 320) { const k = Math.pow(0.0004, h); b.vx *= k; if (b.vy < 0) b.vy *= k; else if (b.vy > 520) b.vy = 520; }   /* 左の発射レーンを戻ってくる玉：左右に跳ね合わず、壁にそって静かに落ちる */
+    /* 発射レーンの上まで届かなかった玉：レーンを落ちてくると、次に打った玉とぶつかるので、上から落とし直す */
+    if (b.x < RAIL_X + 4 && b.y > RAIL_TOP + 6 && b.vy > 40) { b.x = RAIL_X1 + 26 + Math.random() * 40; b.y = 26; b.vx = 40 + Math.random() * 60; b.vy = 20; b.slow = 0; continue; }
     collideWalls(b);
     collideRail(b);
     collideRoute(b);
@@ -2074,8 +2098,9 @@ $('bAuto').addEventListener('click', () => {
   $('bAuto').classList.toggle('on', autoFire);
 });
 $('bSnd').addEventListener('click', () => { snd.mute = !snd.mute; $('bSnd').textContent = snd.mute ? '音 OFF' : '音 ON'; $('bSnd').classList.toggle('on', snd.mute); if (!snd.mute) { AC(); sfxChucker(); } });
-$('vol').addEventListener('input', e => { snd.se = e.target.value / 100; });
-$('vol2').addEventListener('input', e => { snd.bgm = e.target.value / 100; });
+$('vol').addEventListener('input', e => { snd.se = e.target.value / 100; saveVol(); });
+$('vol2').addEventListener('input', e => { snd.bgm = e.target.value / 100; saveVol(); });
+$('vol').value = Math.round(snd.se * 100); $('vol2').value = Math.round(snd.bgm * 100);
 $('prob').value = String(LOTTERY.prob);
 $('prob').addEventListener('change', e => {
   LOTTERY.prob = parseInt(e.target.value, 10); try { localStorage.setItem('pachi_prob', String(LOTTERY.prob)); } catch (err) {}
@@ -2131,6 +2156,7 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
   MODE.k = 'bonus'; MODE.left = 0;
   dexMark('sym', res.symIdx); if (res.symIdx >= 7 && res.symIdx <= 13) bonSeen(res.symIdx - 7);
   if (res.symIdx === SEVEN) G.rec.seven++;
+  if (typeof bgmCfg.sel === 'number') G.rec.oshiMask = (G.rec.oshiMask | 0) | (1 << bgmCfg.sel);   // どの推しボンで大当たりしたか（実績用。おまかせ設定のときは数えない）
   dm('win');
 }
 function onLose() {
@@ -2491,6 +2517,13 @@ const ACH = [
   { id: 'kaku5', label: '確変に5回突入する', ok: () => G.rec.kaku >= 5, r: 2, prog: () => [G.rec.kaku, 5] },
   { id: 'den100', label: '電チューに累計100回入賞', ok: () => G.rec.den >= 100, r: 2, prog: () => [G.rec.den, 100] },
   { id: 'quiz100', label: 'ボンクイズに100問正解', ok: () => G.rec.quizOk >= 100, r: 5, prog: () => [G.rec.quizOk, 100] },
+  { id: 'win100', label: '大当たりを累計100回', ok: () => state.wins >= 100, r: 5, prog: () => [state.wins, 100] },
+  { id: 'shot50000', label: '玉を累計50000発打つ', ok: () => state.shot >= 50000, r: 5, prog: () => [state.shot, 50000] },
+  { id: 'den500', label: '電チューに累計500回入賞', ok: () => G.rec.den >= 500, r: 3, prog: () => [G.rec.den, 500] },
+  { id: 'kaku20', label: '確変に20回突入する', ok: () => G.rec.kaku >= 20, r: 4, prog: () => [G.rec.kaku, 20] },
+  { id: 'chain15', label: '15連チャンする', ok: () => G.rec.bestChain >= 15, r: 6, prog: () => [G.rec.bestChain, 15] },
+  { id: 'oshiHyoe', label: 'ひょえボン推しで大当たり（ちいさな迷子）', ok: () => ((G.rec.oshiMask | 0) >> 2) & 1, r: 2 },
+  { id: 'oshiAll', label: '7人の推しボンぜんいんで大当たり', ok: () => { let n = 0; for (let i = 0; i < 7; i++) if (((G.rec.oshiMask | 0) >> i) & 1) n++; return n >= 7; }, r: 5, prog: () => { let n = 0; for (let i = 0; i < 7; i++) if (((G.rec.oshiMask | 0) >> i) & 1) n++; return [n, 7]; } },
   { id: 'quiz30', label: 'ボンクイズに30問正解', ok: () => G.rec.quizOk >= 30, r: 3, prog: () => [G.rec.quizOk, 30] },
 ];
 function claimCount() {
@@ -2751,17 +2784,37 @@ function makeShareCanvas(forceBi) {
   c.font = '900 84px "Zen Maru Gothic", sans-serif'; c.fillStyle = tg; c.fillText('BON UTOPIA', 60, 120);
   c.font = '700 30px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#ffffffcc'; c.fillText('夢も、希望も、大当たりも！', 64, 170);
   const hist = Array.isArray(G.hist) ? G.hist : [], best = hist.reduce((m, h) => Math.max(m, h.g | 0), 0);
-  const rows = [['最高連チャン', (G.rec.bestChain || 0) + ' 連'], ['大当たり回数', (G.life.wins || 0) + ' 回'], ['1回の最高出玉', best + ' 玉'], ['最高持ち玉', (state.maxHave || 0) + ' 玉']];
-  rows.forEach(([a, b], i) => {
-    const y = 250 + i * 88; c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(60, y - 52, 640, 72);
-    c.font = '700 28px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#e8e0ff'; c.fillText(a, 84, y - 4);
-    c.font = '900 46px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#ffe14d'; c.textAlign = 'right'; c.fillText(b, 676, y + 4); c.textAlign = 'left';
-  });
+  { /* データカウンター風のパネル：スランプグラフ＋数字（実機のホールのデータ表示みたいに） */
+    const px = 60, py = 196, pw = 640, ph = 372, W2 = '"Zen Maru Gothic", sans-serif';
+    c.save(); c.fillStyle = 'rgba(8,10,34,.82)'; roundRect(c, px, py, pw, ph, 18); c.fill(); c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 2; c.stroke(); c.restore();
+    c.font = '900 24px ' + W2; c.fillStyle = '#7df9ff'; c.fillText('DATA COUNTER', px + 22, py + 38);
+    c.font = '700 20px ' + W2; c.fillStyle = '#ffffff99'; c.textAlign = 'right'; c.fillText('スランプグラフ', px + pw - 22, py + 38); c.textAlign = 'left';
+    const gx = px + 22, gy = py + 56, gw = pw - 44, gh = 140;
+    c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(gx, gy, gw, gh);
+    c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1; for (let k = 1; k < 4; k++) { c.beginPath(); c.moveTo(gx, gy + gh * k / 4); c.lineTo(gx + gw, gy + gh * k / 4); c.stroke(); }
+    c.strokeStyle = 'rgba(255,255,255,.5)'; c.setLineDash([6, 6]); c.beginPath(); c.moveTo(gx, gy + gh); c.lineTo(gx + gw, gy + gh); c.stroke(); c.setLineDash([]);
+    { let x = 0, y = 0; const pts = [[0, 0]]; hist.forEach(r => { x += r.sp | 0; y += (r.g | 0); pts.push([x, y]); });
+      if (pts.length > 1) {
+        const mx = Math.max(1, x), my = Math.max(1, ...pts.map(p => p[1])), X = p => gx + p[0] / mx * gw, Y = p => gy + gh - 6 - p[1] / my * (gh - 14);
+        c.beginPath(); pts.forEach((p, k) => k ? c.lineTo(X(p), Y(p)) : c.moveTo(X(p), Y(p))); c.lineTo(gx + gw, gy + gh); c.lineTo(gx, gy + gh); c.closePath(); c.fillStyle = 'rgba(255,225,77,.16)'; c.fill();
+        c.beginPath(); pts.forEach((p, k) => k ? c.lineTo(X(p), Y(p)) : c.moveTo(X(p), Y(p))); c.strokeStyle = '#ffe14d'; c.lineWidth = 4; c.lineJoin = 'round'; c.stroke();
+        const lp = pts[pts.length - 1]; c.beginPath(); c.arc(X(lp), Y(lp), 7, 0, 7); c.fillStyle = '#ff6b9a'; c.fill();
+      } else { c.font = '700 22px ' + W2; c.fillStyle = '#ffffff88'; c.textAlign = 'center'; c.fillText('まだ大当たりの記録なし', gx + gw / 2, gy + gh / 2 + 8); c.textAlign = 'left'; }
+    }
+    const sp = G.life.spins || 0, wn = G.life.wins || 0, hz = wn ? '1/' + Math.round(sp / wn) : '―';
+    const cells = [['総回転数', sp + ' 回'], ['大当たり', wn + ' 回'], ['初当たり確率', hz], ['最高連チャン', (G.rec.bestChain || 0) + ' 連'], ['1回の最高出玉', best + ' 玉'], ['最高持ち玉', (state.maxHave || 0) + ' 玉']];
+    cells.forEach(([a, b], k) => {
+      const cx0 = px + 22 + (k % 3) * 204, cy0 = py + 216 + Math.floor(k / 3) * 78;
+      c.fillStyle = 'rgba(255,255,255,.09)'; roundRect(c, cx0, cy0, 192, 70, 10); c.fill();
+      c.font = '700 18px ' + W2; c.fillStyle = '#b9c4ff'; c.fillText(a, cx0 + 12, cy0 + 24);
+      c.font = '900 30px ' + W2; c.fillStyle = '#ffe14d'; c.fillText(b, cx0 + 12, cy0 + 56, 172);
+    });
+  }
   c.font = '600 24px "Zen Maru Gothic", sans-serif'; c.fillStyle = '#ffffffb0'; c.fillText('完全無料・課金なし・換金なし', 64, 596);
   c.font = '600 22px "Zen Maru Gothic", sans-serif'; c.textAlign = 'right'; c.fillText('bon-creations.github.io/pachi', W - 40, 596); c.textAlign = 'left';
   { // 推しボンがセリフを言う
     const bi = (typeof forceBi === 'number') ? forceBi : oshiBon(), n = G.rec.bestChain || 0, col = bi === 6 ? '#9b6bff' : BON_C[bi][2];
-    let im = bi === 6 ? NIJI_CHIBI : (artRaw(bi, 's', (G.life.wins || 0) % 4) || symImgs[bi]);
+    let im = (bi === 5 || bi === 6) ? (charSymImgs(bi) || [])[0] : (artRaw(bi, 's', (G.life.wins || 0) % 4) || symImgs[bi]);   // てれ・にじは新しい1枚絵
     if (im && im.complete && im.naturalWidth) { const h = 340, w = Math.min(430, h * im.naturalWidth / im.naturalHeight), hh = w * im.naturalHeight / im.naturalWidth; c.drawImage(im, 940 - w / 2, 600 - hh, w, hh); }
     const line = oshiLine(bi, n), bx = 720, by = 60, bw = 450, bh = 170;
     c.save(); c.shadowColor = 'rgba(0,0,0,.35)'; c.shadowBlur = 14; c.fillStyle = '#fff'; c.strokeStyle = col; c.lineWidth = 6;
@@ -2852,7 +2905,8 @@ function openSettings() {
   const row = (t, inner) => `<div class="bgmh">${t}</div>${inner}`;
   let h = '<h2 style="font-size:22px">⚙ 設定</h2>';
   h += row('音', `<div class="bgmsel"><button id="stSnd" class="${snd.mute ? '' : 'on'}">音 ${snd.mute ? 'OFF' : 'ON'}</button><button id="stCalm" class="${calm ? 'on' : ''}">光の演出：${calm ? '弱め' : 'ふつう'}</button></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:8px;color:#3a2a10">効果音<input type="range" id="stSe" min="0" max="100" value="${Math.round(snd.se * 100)}" style="flex:1"></label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:8px;color:#3a2a10">演出の音<input type="range" id="stSe" min="0" max="100" value="${Math.round(snd.se * 100)}" style="flex:1"></label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">玉の音<input type="range" id="stBall" min="0" max="100" value="${Math.round(snd.ball * 100)}" style="flex:1"></label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">BGM<input type="range" id="stBgm" min="0" max="100" value="${Math.round(snd.bgm * 100)}" style="flex:1"></label>`);
   if (isPlay) h += row('台の種類（大当たりの確率・ラウンド）', `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr)">${[10, 99, 199, 319, 399].filter(p => p !== 10 || debugMode).map(p => `<button data-prob="${p}" class="${LOTTERY.prob === p ? 'on' : ''}">1/${p}<small>${MACH[p].name}・${MACH[p].rounds}R</small></button>`).join('')}</div><div style="font-size:11px;color:#8a6a30;margin-top:4px">変えると、次の入賞から反映されるよ。</div>`);
   else h += row('台の確率（大当たり）', `<div style="font-size:12px;color:#6b4a1a">いまは 1/${LOTTERY.prob}。遊んでいる最中に、画面の「🎰 確率」から変えられるよ。</div>`);
@@ -2898,7 +2952,7 @@ function openSettings() {
   $('stSnd').onclick = () => { $('bSnd').click(); again(); };
   $('stCalm').onclick = () => { setCalm(!calm); toast(calm ? '光の演出を弱めたよ' : '光の演出をふつうにしたよ'); again(); };
   const proxy = (id, hid) => { $(id).addEventListener('input', e => { $(hid).value = e.target.value; $(hid).dispatchEvent(new Event('input')); }); };
-  proxy('stSe', 'vol'); proxy('stBgm', 'vol2');
+  proxy('stSe', 'vol'); proxy('stBgm', 'vol2'); $('stBall').addEventListener('input', e => { snd.ball = e.target.value / 100; saveVol(); });
   box.querySelectorAll('[data-prob]').forEach(b => b.onclick = () => { $('prob').value = b.dataset.prob; $('prob').dispatchEvent(new Event('change')); again(); });
   $('stHow').onclick = () => openHowTo(0); $('stData').onclick = openData; $('stCust').onclick = () => openCustom('hold'); $('stShare').onclick = openShare;
 }
@@ -3737,10 +3791,12 @@ loadGame(); bfFab(); const __lr = loginCheck(); renderMenu();
   if (!seen) { tutAfter = () => { if (__lr) showLogin(__lr); }; openTutorial('ask'); } else if (__lr) showLogin(__lr); }
 
 /* ---------- メインループ ---------- */
-let last = performance.now(), acc = 0;
+let last = performance.now(), acc = 0, simMul = 1;
+$('bSpeed').addEventListener('click', () => { simMul = simMul === 1 ? 2 : simMul === 2 ? 3 : 1; $('bSpeed').textContent = '倍速 ×' + simMul; $('bSpeed').classList.toggle('on', simMul > 1); });   /* 打ち出し・玉・図柄の動きを速くする（音は変わらない） */
 function frame(now) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 1 / 20) dt = 1 / 20;
+  dt *= simMul;
   if (playing && (firing || autoFire)) {
     fireTimer += dt;
     while (fireTimer >= RATES[save.rate].interval) { fireTimer -= RATES[save.rate].interval; if (!fireBall()) { fireTimer = 0; break; } }
@@ -3748,8 +3804,8 @@ function frame(now) {
   const h = 1 / 60 / CONFIG.subSteps;
   acc += dt;
   let n = 0;
-  while (acc >= h && n < CONFIG.subSteps * 3) { step(h); acc -= h; n++; }
-  if (acc > h * 4) acc = 0;
+  while (acc >= h && n < CONFIG.subSteps * 3 * simMul) { step(h); acc -= h; n++; }
+  if (acc > h * 4 * simMul) acc = 0;
   postStep(dt);
   if (playing) updateLCD(dt);
   if (flash > 0) flash = Math.max(0, flash - dt * 2.5);
