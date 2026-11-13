@@ -205,7 +205,8 @@
         </div>
         <div id="btns">
           <button id="bAuto">連続発射 OFF</button>
-          <button id="bSpeed" style="flex:none;width:64px;padding:0">倍速 ×1</button>
+          <button id="bSpeed" style="flex:none;width:64px;padding:0">🔒倍速</button>
+          <button id="bBest" style="flex:none;width:92px;padding:0;display:none">🤖ベスト角度</button>
           <button id="bSkip">演出スキップ</button>
           <button id="bQuit">カスタム</button>
           <button id="bSet" aria-label="設定" style="flex:none;width:38px;padding:0">⚙</button>
@@ -1136,6 +1137,7 @@ function drawLCD(c) {
       col = HOLD_COL[k][0]; if (k === 'rainbow') col = calm ? '#ffd24d' : `hsl(${(performance.now() / 6) % 360},100%,60%)`;
     }
     drawHoldShape(c, holdDesign(), hx, hy, col, k, has);
+    if (has && hasTool('radar') && state.queue[i] && state.queue[i].win) { c.fillStyle = '#ff3d6e'; c.font = 'bold 9px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.fillText('当', hx, hy - 10); }   // 保留レーダー
   }
   { const need = needSide(), sdNow = sideOf(), ok = sdNow === need, blink = Math.floor(performance.now() / 380) % 2 === 0;
     const tx = need === 'R' ? '右打ち »' : '« 左打ち', cx = LCD.x + LCD.w / 2, cy = LCD.y + 10;
@@ -1543,17 +1545,16 @@ function collideBalls() {
   }
 }
 
-function step(h) {
-  const g = CONFIG.gravity; denT += h;
-  WM[0].a += 1.5 * h; WM[1].a -= 1.8 * h;
-  for (const b of balls) {
+/* 玉1個ぶんの動き（本物の玉と、軌道ガイド・ベスト角度の予測の両方で使う） */
+function stepBall(b, h) {
+  const g = CONFIG.gravity;
     b.vy += g * h;
     const sp = Math.hypot(b.vx, b.vy);
     if (sp > CONFIG.maxSpeed) { b.vx *= CONFIG.maxSpeed / sp; b.vy *= CONFIG.maxSpeed / sp; }
     b.x += b.vx * h; b.y += b.vy * h;
     if (b.x < RAIL_X + 3 && b.y > RAIL_TOP - 10 && Math.abs(b.vy) < 320) { const k = Math.pow(0.0004, h); b.vx *= k; if (b.vy < 0) b.vy *= k; else if (b.vy > 520) b.vy = 520; }   /* 左の発射レーンを戻ってくる玉：左右に跳ね合わず、壁にそって静かに落ちる */
     /* 発射レーンの上まで届かなかった玉：レーンを落ちてくると、次に打った玉とぶつかるので、上から落とし直す */
-    if (b.x < RAIL_X + 4 && b.y > RAIL_TOP + 6 && b.vy > 40) { b.x = RAIL_X1 + 26 + Math.random() * 40; b.y = 26; b.vx = 40 + Math.random() * 60; b.vy = 20; b.slow = 0; continue; }
+    if (b.x < RAIL_X + 4 && b.y > RAIL_TOP + 6 && b.vy > 40) { b.x = RAIL_X1 + 26 + Math.random() * 40; b.y = 26; b.vx = 40 + Math.random() * 60; b.vy = 20; b.slow = 0; return; }
     collideWalls(b);
     collideRail(b);
     collideRoute(b);
@@ -1565,10 +1566,81 @@ function step(h) {
       if (Math.abs(b.x - n.x) > 10 || Math.abs(b.y - n.y) > 10) continue;
       hitCircle(b, n.x, n.y, CONFIG.nailR, CONFIG.nailRestitution, CONFIG.nailJitter, true);
     }
-  }
+}
+function step(h) {
+  denT += h;
+  WM[0].a += 1.5 * h; WM[1].a -= 1.8 * h;
+  for (const b of balls) stepBall(b, h);
   collideBalls();
 }
 
+/* ---------- UBで買える便利ツール ---------- */
+const TOOLS = [
+  { id: 'speed', icon: '⏩', name: '倍速ボタン', price: 3000, desc: '玉の動きと図柄の変動を、2倍・3倍の速さで進める。打ち出しも速くなるよ。' },
+  { id: 'guide', icon: '🎯', name: '玉の軌道ガイド', price: 4000, desc: 'いまのハンドルで打つと、玉がどこを通るかの予測線を盤面に出す（釘のはね方は毎回ちょっと変わるので、目安だよ）。' },
+  { id: 'radar', icon: '📡', name: '保留レーダー', price: 5500, desc: '保留の中に「当たり」が入っていると、そのランプに「当」のしるしが出る。' },
+  { id: 'auto', icon: '🤖', name: '自動ベスト角度', price: 8000, desc: '「ベスト角度」ボタンが使えるようになる。いまの打ち方（左打ち・右打ち）で、いちばん入賞しやすい角度を計算してハンドルを合わせてくれる。' },
+];
+const hasTool = id => !!(G && G.shop && G.shop.tools && G.shop.tools[id]);
+function updTools() {
+  const bs = $('bSpeed'); if (bs) { const on = hasTool('speed'), tx = on ? '倍速 ×' + simMul : '🔒倍速'; if (bs.textContent !== tx) bs.textContent = tx; bs.classList.toggle('on', on && simMul > 1); }
+  const ba = $('bBest'); if (ba) { const d = hasTool('auto') ? '' : 'none'; if (ba.style.display !== d) ba.style.display = d; }
+}
+let guideCache = { key: '', pts: null };
+function predictPath(ang, quiet) {   // いまの角度で打った玉の通り道（音を出さない・ばらつきなしで1回だけ動かす）
+  const keepA = angleDeg, keepR = Math.random, keepM = snd.mute; angleDeg = ang; Math.random = () => 0.5; snd.mute = true;
+  const pts = []; let hit = '';
+  try {
+    const v = speedOf(), b = { x: 21.5, y: H - 30, vx: v * LANE_S, vy: -v, slow: 0 }, dOpen = denOpen(), aOpen = attOpen();
+    for (let i = 0; i < 2400; i++) {
+      stepBall(b, 1 / 480); if (i % 10 === 0) pts.push(b.x, b.y);
+      if (b.x > CHUCKER.x && b.x < CHUCKER.x + CHUCKER.w && b.y > CHUCKER.y && b.y < CHUCKER.y + CHUCKER.h) { hit = 'start'; break; }
+      if (dOpen && b.x > DEN.x && b.x < DEN.x + DEN.w && b.y > DEN.y && b.y < DEN.y + DEN.h) { hit = 'den'; break; }
+      if (aOpen && b.x > ATT.x && b.x < ATT.x + ATT.w && b.y > ATT.y && b.y < ATT.y + ATT.h) { hit = 'att'; break; }
+      if (b.y > H + 12) break;
+    }
+  } finally { angleDeg = keepA; Math.random = keepR; snd.mute = keepM; }
+  return { pts, hit };
+}
+function trialHit(ang) {   // 本番と同じ「ばらつきあり」で1発打って、入賞したか
+  const keepA = angleDeg, keepM = snd.mute; angleDeg = ang; snd.mute = true;
+  try {
+    const v = speedOf() * (1 + (Math.random() - 0.5) * 0.03), b = { x: 20 + Math.random() * 3, y: H - 30, vx: v * LANE_S + (Math.random() - 0.5) * 12, vy: -v, slow: 0 }, dOpen = denOpen(), aOpen = attOpen();
+    for (let i = 0; i < 2400; i++) {
+      stepBall(b, 1 / 480);
+      if (b.x > CHUCKER.x && b.x < CHUCKER.x + CHUCKER.w && b.y > CHUCKER.y && b.y < CHUCKER.y + CHUCKER.h) return 1;
+      if (dOpen && b.x > DEN.x && b.x < DEN.x + DEN.w && b.y > DEN.y && b.y < DEN.y + DEN.h) return 1;
+      if (aOpen && b.x > ATT.x && b.x < ATT.x + ATT.w && b.y > ATT.y && b.y < ATT.y + ATT.h) return 1;
+      if (b.y > H + 12) return 0;
+    }
+  } finally { angleDeg = keepA; snd.mute = keepM; }
+  return 0;
+}
+let bestBusy = false;
+async function findBestAngle() {
+  if (bestBusy) return; bestBusy = true; const need = needSide(); toast('ベスト角度を計算中…'); $('bBest').textContent = '計算中…';
+  try {
+    const lo = need === 'R' ? 44 : -135, hi = need === 'R' ? 135 : 26, N = 40; let best = null, bestSc = -1; const list = [];
+    for (let a = lo; a <= hi; a += 6) list.push(a);
+    for (const a of list) {
+      let sc = 0; for (let k = 0; k < N; k++) sc += trialHit(a);
+      if (sc > bestSc) { bestSc = sc; best = a; }
+      await new Promise(r => setTimeout(r, 0));
+    }
+    if (best === null || bestSc <= 0) { toast('入りそうな角度が見つからなかったよ。もういちど試してね'); }
+    else { angleDeg = best; updateDial(); toast(`ベスト角度に合わせたよ（${best}°・${Math.round(bestSc / N * 100)}％で入賞）`); }
+  } catch (e) { toast('うまく計算できなかったよ'); }
+  bestBusy = false; $('bBest').textContent = '🤖ベスト角度';
+}
+function drawGuide() {   // 軌道ガイド：予測線を点線で描く
+  if (!playing || !hasTool('guide')) return;
+  const key = Math.round(angleDeg * 2) + ':' + (denOpen() ? 1 : 0) + ':' + (attOpen() ? 1 : 0) + ':' + Math.floor(performance.now() / 500);
+  if (guideCache.key !== key) guideCache = { key, ...predictPath(angleDeg) };
+  const p = guideCache.pts; if (!p || p.length < 4) return; const c = ctx; c.save(); c.scale(S, S);
+  c.setLineDash([5, 6]); c.lineWidth = 2; c.lineCap = 'round'; c.strokeStyle = guideCache.hit ? 'rgba(120,255,170,.8)' : 'rgba(255,255,255,.6)'; c.beginPath(); c.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) c.lineTo(p[i], p[i + 1]); c.stroke(); c.setLineDash([]);
+  if (guideCache.hit) { c.fillStyle = 'rgba(120,255,170,.95)'; c.beginPath(); c.arc(p[p.length - 2], p[p.length - 1], 5, 0, 7); c.fill(); }
+  c.restore();
+}
 let denWas = false;
 function postStep(dt) {
   { const o = denOpen(); if (o !== denWas) { denWas = o; if (o) sfxDenOpen(); else sfxDenClose(); } }
@@ -2023,6 +2095,7 @@ function draw() {
   ctx.drawImage(staticLayer, 0, 0);
   drawBoardDeco(); try { drawOshiSide(); } catch (e) {} drawWindmills(); drawDen(); drawYaku(); drawLamps(); drawAttacker();
   const r = ballSprite.width / 2;
+  try { drawGuide(); } catch (e) {}
   /* 玉：盤面に落ちる影と、速いときの残像（重い鉄の玉っぽく） */
   ctx.fillStyle = 'rgba(25,8,50,.3)'; ctx.beginPath(); for (const b of balls) { ctx.moveTo((b.x + 1.8) * S + r * 0.92, (b.y + 2.4) * S); ctx.arc((b.x + 1.8) * S, (b.y + 2.4) * S, r * 0.92, 0, 7); } ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = r * 1.1; ctx.lineCap = 'round'; ctx.beginPath();
@@ -3060,9 +3133,9 @@ function openSettings() {
 
 function openShop(tab) {
   const sh = G.shop; tab = tab === 'line' ? 'gacha' : (tab || 'gacha');
-  const tabs = [['gacha', 'ガチャ'], ['coin', 'コイン'], ['cheer', '応援']];
+  const tabs = [['gacha', 'ガチャ'], ['tool', 'ツール'], ['coin', 'コイン'], ['cheer', '応援']];
   let h = `<h2 style="font-size:22px">🎁 玉の景品交換所</h2><div style="text-align:center;font-weight:900;margin:4px 0 4px">持ち玉 <span style="font-size:18px;color:#c0560a">${totalBalls()}</span> 玉 ／ 持ちUB <span style="font-size:20px;color:#c0560a">${bonOwn()}</span> UB</div><div style="background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:6px 10px;margin:0 0 8px;font-size:12px;font-weight:700;line-height:1.6;color:#6b4a1a">玉は先に<b>「UB（ユートピアボン）」</b>に両替してから、景品と交換するよ。いまは${RATES[save.rate].label}だから <b>1玉＝${save.rate}UB</b>。<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${[['100', '100玉'], ['1000', '1000玉'], ['all', 'ぜんぶ']].map(([k, n]) => `<button data-do="xch:${k}" style="flex:none;min-height:34px;border-radius:10px;border:2px solid #b57a12;background:${totalBalls() > 0 ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900;font-size:12px">${n}を両替</button>`).join('')}</div></div>`;
-  h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">${tabs.map(([k, n]) => `<button data-tab="${k}" style="flex:none;min-height:36px;font-size:13px;border-radius:10px;border:2px solid ${k === tab ? '#b57a12' : '#d9c9a3'};background:${k === tab ? '#ffe08a' : '#fff'};color:#3a2a10;font-weight:800">${n}</button>`).join('')}</div>`;
+  h += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">${tabs.map(([k, n]) => `<button data-tab="${k}" style="flex:none;min-height:36px;font-size:13px;border-radius:10px;border:2px solid ${k === tab ? '#b57a12' : '#d9c9a3'};background:${k === tab ? '#ffe08a' : '#fff'};color:#3a2a10;font-weight:800">${n}</button>`).join('')}</div>`;
   const card = 'background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:8px 10px;margin:6px 0;font-weight:700;line-height:1.6;font-size:13px';
   const btn = (id, label, ok) => `<button data-do="${id}" style="flex:none;width:100%;min-height:38px;margin-top:6px;border-radius:10px;border:2px solid #b57a12;background:${ok ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900">${label}</button>`;
   if (tab === 'line') {
@@ -3079,6 +3152,9 @@ function openShop(tab) {
       h += `<div style="${card}"><b>${nm}</b><br><span style="font-size:12px;font-weight:700">集めた ${have} / ${ids.length} 種</span>${btn('gacha:' + k, `${GACHA_PRICE[k]} UBで引く`, bonOwn() >= GACHA_PRICE[k])}</div>`;
     });
     if (sh.last !== undefined && sh.last >= 0) h += cardView(sh.last, false);
+  } else if (tab === 'tool') {
+    h += '<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">持ち玉をUBに両替して、便利ツールを買おう。いちど買えばずっと使えるよ。</div>';
+    TOOLS.forEach(t => { const got = hasTool(t.id); h += `<div style="${card}"><b>${t.icon} ${t.name}</b>${got ? '　<span style="color:#2e7d4b">【持ってる】</span>' : ''}<div style="font-size:12px;font-weight:700;color:#6b4a1a">${t.desc}</div>${got ? '' : btn('tool:' + t.id, `${t.price} UBで買う`, bonOwn() >= t.price)}</div>`; });
   } else if (tab === 'coin') {
     const ex = sh.extra | 0, can = ex < SHOP_EXTRA_MAX;
     h += `<div style="${card}">🪙 ボンコインと交換：${SHOP_COIN_COST}UBで1枚（いまの所持 ${save.coins} / ${COIN.max}）${btn('coin', `${SHOP_COIN_COST} UBで1枚もらう`, bonOwn() >= SHOP_COIN_COST && save.coins < COIN.max)}</div>`;
@@ -3097,7 +3173,8 @@ function openShop(tab) {
   box.querySelectorAll('[data-do]').forEach(b => b.onclick = () => {
     const [act, a, c] = b.dataset.do.split(':');   // gacha:種類
     if (act === 'xch') { const tot = totalBalls(); let n = a === 'all' ? tot : Math.min(+a, tot); if (n <= 0) { toast('両替できる玉がないよ'); return; } const m = Math.min(n, totalBalls()); let r = m; const g = k => { const t = Math.min(r, state[k]); state[k] -= t; r -= t; }; g('box'); g('shimo'); g('have'); sh.bon = bonOwn() + m * save.rate; saveGame(); toast(`${m}玉を ${m * save.rate}UBに両替したよ`); updateUI(); renderMenu(); openShop(tab); return; }
-    if (act === 'line') { if (!shopSpend(SHOP_LINE_COST[+c])) return; sh.lines[a + '_' + c] = 1; }
+    if (act === 'tool') { const t = TOOLS.find(x => x.id === a); if (!t || hasTool(a) || !shopSpend(t.price)) return; sh.tools = sh.tools || {}; sh.tools[a] = 1; updTools(); }
+    else if (act === 'line') { if (!shopSpend(SHOP_LINE_COST[+c])) return; sh.lines[a + '_' + c] = 1; }
     else if (act === 'gacha') {
       if (!shopSpend(GACHA_PRICE[a] || SHOP_GACHA_COST)) return;
       const i = gachaRoll(a);
@@ -3893,12 +3970,13 @@ loadGame(); bfFab(); const __lr = loginCheck(); renderMenu();
 
 /* ---------- メインループ ---------- */
 let last = performance.now(), acc = 0, simMul = 1;
-$('bSpeed').addEventListener('click', () => { simMul = simMul === 1 ? 2 : simMul === 2 ? 3 : 1; $('bSpeed').textContent = '倍速 ×' + simMul; $('bSpeed').classList.toggle('on', simMul > 1); });   /* 打ち出し・玉・図柄の動きを速くする（音は変わらない） */
+$('bSpeed').addEventListener('click', () => { if (!hasTool('speed')) { toast('倍速は景品交換所の「ツール」で買えるよ（3000UB）'); return; } simMul = simMul === 1 ? 2 : simMul === 2 ? 3 : 1; $('bSpeed').textContent = '倍速 ×' + simMul; $('bSpeed').classList.toggle('on', simMul > 1); });
+$('bBest').addEventListener('click', () => { if (!playing) return; findBestAngle(); });   /* 打ち出し・玉・図柄の動きを速くする（音は変わらない） */
 function frame(now) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 1 / 20) dt = 1 / 20;
   dt *= simMul;
-  if ((hall.tick = (hall.tick + 1) % 20) === 0) { try { hallUpdate(now); } catch (e) {} }
+  if ((hall.tick = (hall.tick + 1) % 20) === 0) { try { hallUpdate(now); updTools(); } catch (e) {} }
   if (playing && (firing || autoFire)) {
     fireTimer += dt;
     while (fireTimer >= RATES[save.rate].interval) { fireTimer -= RATES[save.rate].interval; if (!fireBall()) { fireTimer = 0; break; } }
