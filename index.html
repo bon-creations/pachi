@@ -454,6 +454,9 @@ const PARTS = {
 };
 [[55, 'bfx', 'halo', 'ひかり玉', '玉のまわりがやわらかく光る'], [56, 'bfx', 'spark', 'キラキラ玉', '玉にキラキラがまとわりつく'], [57, 'bfx', 'heart', 'ハート玉', '玉のそばにハートがふわっと浮かぶ'],
  [58, 'bg', 'dots', '水玉の盤面', '盤面にやさしい水玉もようが出る'], [59, 'bg', 'stars', '星空の盤面', '盤面にちいさな星がまたたく'], [60, 'bg', 'wave', 'なみの盤面', '盤面にゆるやかな波もようが出る'],
+ [63, 'bfx', 'rainbow', 'にじ玉', '玉が虹色にゆっくり光る'], [64, 'bfx', 'snow', '雪の玉', '玉から雪のつぶがふわふわ落ちる'], [65, 'bfx', 'flame', 'ほのお玉', '玉のうしろに小さな炎がゆれる'],
+ [66, 'bg', 'check', 'チェックの盤面', '盤面にやさしいチェックもようが出る'], [67, 'bg', 'rainbow', 'にじの盤面', '盤面にななめの虹のしまが出る'], [68, 'bg', 'hex', 'ハニカムの盤面', '盤面に六角形のもようが出る'],
+ [69, 'se', 'bell', 'ベル音セット', '効果音がきらきらしたベルの音になる'], [70, 'se', 'wood', '木の音セット', '効果音がコロコロした木の音になる'],
  [61, 'se', 'chime', 'チャイム音セット', '効果音がやわらかいチャイムの音になる'], [62, 'se', '8bit', '8bitサウンド', '効果音がレトロなゲーム機の音になる']].forEach(([id, kind, key, name, desc]) => { PARTS[id] = { kind, key, name, desc }; });
 [['おこボン', 'ikari', ['#c0392b', '#2a0806'], ['#ff7a5c', '#c0392b', '#6a1a14']], ['にこボン', 'niko', ['#e0a020', '#3a2404'], ['#ffe27a', '#f0a830', '#a86a14']],
  ['ひょえボン', 'hyoe', ['#2a8ad0', '#04162a'], ['#7ad4ff', '#2a8ad0', '#144a7a']], ['もぐボン', 'mogu', ['#4a9a3a', '#0c200a'], ['#a8e07a', '#4a9a3a', '#2a5a22']],
@@ -485,11 +488,11 @@ function oshiTone() {
 }
 const skinCol = (sub, def) => { const ot = oshiTone(); if (ot && ot[sub]) return ot[sub]; return skinCol0(sub, def); };
 const skinCol0 = (sub, def) => def;   // 着せ替え（液晶・盤面の色パーツ）は廃止
-const PART_RARE = { 62: 1, 6: 1, 11: 1, 15: 1, 26: 1, 33: 1, 46: 1, 53: 1, 54: 1 };
+const PART_RARE = { 63: 1, 67: 1, 62: 1, 6: 1, 11: 1, 15: 1, 26: 1, 33: 1, 46: 1, 53: 1, 54: 1 };
 const CARD_N = 30;   // 16〜19番は欠番（ボン以外の色の着せ替えは廃止）
-const GACHA_W = [8, 8, 8, 8, 8, 8, 3, 7, 7, 7, 7, 0, 5, 5, 5, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 6, 6, 6, 3, 1, 5, 5, 5, 4, 4, 4, 4, 2];   // 40〜46＝デフォルメ版／47〜53＝顔アップ版／54＝ボン大集合
-const GACHA_KIND = { bon: ['ボンカード', '🎁', i => i < 7 || (i >= 40 && i <= 54)], parts: ['カスタムパーツ（保留・予告・見た目・音）', '🎨', i => (i >= 7 && i < 16) || i >= 55] };
-const GACHA_PRICE = { bon: 150, parts: 300 };
+const GACHA_W = [8, 8, 8, 8, 8, 8, 3, 7, 7, 7, 7, 0, 5, 5, 5, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 6, 6, 6, 3, 1, 5, 5, 5, 4, 4, 4, 4, 2, 2, 4, 4, 4, 3, 3, 4, 4];   // 40〜46＝デフォルメ版／47〜53＝顔アップ版／54＝ボン大集合
+const GACHA_KIND = { parts: ['カスタムパーツ（保留・予告・見た目・音）', '🎨', i => (i >= 7 && i < 16) || i >= 55] };
+const GACHA_PRICE = { parts: 300 };
 function gachaRoll(kind) {
   const ok = (GACHA_KIND[kind] || [0, 0, () => true])[2], ids = GACHA_W.map((w, i) => i).filter(i => GACHA_W[i] > 0 && ok(i));
   let r = Math.random() * ids.reduce((a, i) => a + GACHA_W[i], 0);
@@ -1241,7 +1244,7 @@ function drawIntro() {
 }
 
 /* ---------- サウンド（WebAudio・外部ファイルなし） ---------- */
-const snd = { ac: null, se: 0.6, bgm: 0.5, ball: 0.6, hall: 0.35, ch: '', mute: false, lastNail: 0 };   // se=演出の音 / ball=玉・釘・入賞の音 / bgm=曲
+const snd = { ac: null, se: 0.6, bgm: 0.5, ball: 0.6, hall: 0.5, ch: '', mute: false, lastNail: 0 };   // se=演出の音 / ball=玉・釘・入賞の音 / bgm=曲
 try { const v = JSON.parse(localStorage.getItem('bonutopia_vol') || 'null'); if (v) { ['se', 'bgm', 'ball', 'hall'].forEach(k => { if (typeof v[k] === 'number' && v[k] >= 0 && v[k] <= 1) snd[k] = v[k]; }); } } catch (e) {}
 const saveVol = () => { try { localStorage.setItem('bonutopia_vol', JSON.stringify({ se: snd.se, bgm: snd.bgm, ball: snd.ball, hall: snd.hall })); } catch (e) {} };
 const chVol = ch => ch === 'bgm' ? snd.bgm : (snd.ch === 'ball' ? snd.ball : snd.se);
@@ -1253,35 +1256,80 @@ function AC() {
 function tone(f0, dur, type, gain, f1, delay, ch) {
   if (snd.mute) return; const ac = AC(); if (!ac) return;
   const t0 = ac.currentTime + (delay || 0), o = ac.createOscillator(), g = ac.createGain();
-  let ty = type || 'sine', gm = 1; if (custom.se === '8bit' && partOwned('8bit')) { ty = 'square'; gm = 0.6; } else if (custom.se === 'chime' && partOwned('chime')) { ty = 'sine'; f0 *= 2; if (f1) f1 *= 2; dur *= 1.25; gm = 1.1; }
+  let ty = type || 'sine', gm = 1; if (custom.se === '8bit' && partOwned('8bit')) { ty = 'square'; gm = 0.6; } else if (custom.se === 'bell' && partOwned('bell')) { ty = 'triangle'; f0 *= 3; if (f1) f1 *= 3; dur *= 1.5; gm = 0.9; } else if (custom.se === 'wood' && partOwned('wood')) { ty = 'triangle'; f0 *= 0.7; if (f1) f1 *= 0.7; dur *= 0.55; gm = 1.3; } else if (custom.se === 'chime' && partOwned('chime')) { ty = 'sine'; f0 *= 2; if (f1) f1 *= 2; dur *= 1.25; gm = 1.1; }
   o.type = ty; o.frequency.setValueAtTime(f0, t0);
   if (f1) o.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
   const v = gain * gm * chVol(ch); g.gain.setValueAtTime(v, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
 }
 /* ホールの環境音：ざわざわした店内の音と、遠くの台の当たり音・ジャラジャラ（「ホールの音」のつまみで調整。0で消える） */
-const hall = { node: null, g: null, next: 0, tick: 0 };
+const hall = { node: null, g: null, out: null, ev: null, next: 0, nextPA: 0, tick: 0 };
 function hallStart() {
-  const ac = AC(); if (!ac || hall.node) return;
-  const len = ac.sampleRate * 4, buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0); let b0 = 0, b1 = 0;
-  for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.985 * b0 + 0.015 * w; b1 = 0.9 * b1 + 0.1 * w; d[i] = (b0 * 9 + b1 * 0.5) * (0.85 + 0.15 * Math.sin(i / ac.sampleRate * 1.7)); }
-  const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
-  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; const g = ac.createGain(); g.gain.value = 0;
-  src.connect(lp); lp.connect(g); g.connect(ac.destination); src.start(); hall.node = src; hall.g = g;
+  const ac = AC(); if (!ac || hall.node) return; const sr = ac.sampleRate;
+  const out = ac.createGain(); out.gain.value = 0; out.connect(ac.destination);
+  // 部屋の響き（短いリバーブ）
+  const rl = Math.floor(sr * 1.1), rb = ac.createBuffer(2, rl, sr);
+  for (let c = 0; c < 2; c++) { const d = rb.getChannelData(c); for (let i = 0; i < rl; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / rl, 2.6); }
+  const conv = ac.createConvolver(); conv.buffer = rb; const wet = ac.createGain(); wet.gain.value = 0.55; conv.connect(wet); wet.connect(out);
+  const ev = ac.createGain(); ev.gain.value = 1; ev.connect(out); ev.connect(conv);
+  // ① 店内のざわめき（人の声・空調・遠い機械音のまざった低めのうなり）
+  const L = sr * 6, wb = ac.createBuffer(1, L, sr), wd = wb.getChannelData(0); let b0 = 0, b1 = 0, b2 = 0, pk = 0;
+  for (let i = 0; i < L; i++) { const w = Math.random() * 2 - 1; b0 = 0.98 * b0 + 0.02 * w; b1 = 0.93 * b1 + 0.07 * w; b2 = 0.7 * b2 + 0.3 * w; const t = i / sr; wd[i] = (b0 * 7 + b1 * 1.4 + b2 * 0.25) * (0.8 + 0.2 * Math.sin(t * 1.1 + 1) * Math.sin(t * 0.37)); pk = Math.max(pk, Math.abs(wd[i])); }
+  for (let i = 0; i < L; i++) wd[i] /= pk;
+  const ws = ac.createBufferSource(); ws.buffer = wb; ws.loop = true; const wl = ac.createBiquadFilter(); wl.type = 'lowpass'; wl.frequency.value = 1500; const wg = ac.createGain(); wg.gain.value = 0.07;
+  ws.connect(wl); wl.connect(wg); wg.connect(out); ws.start();
+  // ② ずっと鳴っている「ジャラジャラ」（玉が流れる細かい音が、ひっきりなしに重なる）
+  const jb = ac.createBuffer(1, L, sr), jd = jb.getChannelData(0); let jp = 0;
+  for (let n = 0, N = Math.floor(L / sr * 260); n < N; n++) {
+    const st = Math.floor(Math.random() * L), len = Math.floor(sr * (0.004 + Math.random() * 0.012)), f = 2600 + Math.random() * 3800, amp = 0.25 + Math.random() * 0.75;
+    for (let i = 0; i < len && st + i < L; i++) jd[st + i] += Math.sin(i / sr * f * 6.283) * Math.exp(-i / len * 5) * amp * (0.6 + 0.4 * (Math.random() * 2 - 1));
+  }
+  for (let i = 0; i < L; i++) { const w = (Math.random() * 2 - 1) * 0.06 * (0.5 + 0.5 * Math.sin(i / sr * 2.3)); jd[i] += w; jp = Math.max(jp, Math.abs(jd[i])); }
+  for (let i = 0; i < L; i++) jd[i] /= jp;
+  const js = ac.createBufferSource(); js.buffer = jb; js.loop = true; const jh = ac.createBiquadFilter(); jh.type = 'highpass'; jh.frequency.value = 1800; const jg = ac.createGain(); jg.gain.value = 0.085;
+  js.connect(jh); jh.connect(jg); jg.connect(out); jg.connect(conv); js.start(0, 1.7);
+  hall.node = ws; hall.g = out; hall.out = out; hall.ev = ev; hall.next = performance.now() + 800; hall.nextPA = performance.now() + 20000 + Math.random() * 20000;
 }
-function hallDistant() {   // 遠くの台の音（小さく・こもらせて）
-  const ac = AC(); if (!ac || snd.mute || snd.hall <= 0) return; const t0 = ac.currentTime, v = snd.hall * 0.05;
-  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800; lp.connect(ac.destination);
-  const kind = Math.random();
-  if (kind < 0.45) { [0, 0.09, 0.18, 0.27].forEach((dl, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = 'square'; o.frequency.value = [784, 988, 1175, 1568][i]; g.gain.setValueAtTime(v, t0 + dl); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dl + 0.12); o.connect(g); g.connect(lp); o.start(t0 + dl); o.stop(t0 + dl + 0.14); }); }
-  else { const n = 7 + Math.floor(Math.random() * 6); for (let i = 0; i < n; i++) { const o = ac.createOscillator(), g = ac.createGain(), dl = i * 0.055 + Math.random() * 0.02; o.type = 'triangle'; o.frequency.value = 2200 + Math.random() * 900; g.gain.setValueAtTime(v * 0.8, t0 + dl); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dl + 0.05); o.connect(g); g.connect(lp); o.start(t0 + dl); o.stop(t0 + dl + 0.06); } }
+function hallVoice(type, f, t, dur, v, lp, pan) {
+  const ac = AC(), o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 18;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur + 0.03);
+}
+function hallDistant() {   // 遠くの台・店内放送など。毎回ちがう台から、ちがう距離で聞こえる
+  const ac = AC(); if (!ac || snd.mute || !hall.ev) return; const t0 = ac.currentTime + 0.02;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400 + Math.random() * 2600;
+  const pn = ac.createStereoPanner ? ac.createStereoPanner() : null, dist = 0.3 + Math.random() * 0.7, gv = ac.createGain(); gv.gain.value = dist;
+  if (pn) { pn.pan.value = Math.random() * 2 - 1; lp.connect(gv); gv.connect(pn); pn.connect(hall.ev); } else { lp.connect(gv); gv.connect(hall.ev); }
+  const r = Math.random(), sc = [[523, 659, 784, 1047], [440, 523, 659, 880], [587, 698, 880, 1175], [494, 622, 740, 988]][Math.floor(Math.random() * 4)];
+  if (r < 0.34) {   // 台のメロディ（予告・リーチ中のピコピコ）
+    const n = 5 + Math.floor(Math.random() * 6), step = 0.07 + Math.random() * 0.06, ty = Math.random() < 0.5 ? 'square' : 'sawtooth';
+    for (let i = 0; i < n; i++) hallVoice(ty, sc[Math.floor(Math.random() * 4)] * (Math.random() < 0.25 ? 2 : 1), t0 + i * step, step * 1.3, 0.05, lp);
+  } else if (r < 0.54) {   // リーチ・当たりの「ピロリロリン」
+    [0, 1, 2, 3, 2, 3].forEach((k, i) => hallVoice('square', sc[k] * 1.5, t0 + i * 0.075, 0.13, 0.055, lp));
+  } else if (r < 0.74) {   // ジャラジャラ（出玉・玉がさらに流れ出る）
+    const n = 14 + Math.floor(Math.random() * 24);
+    for (let i = 0; i < n; i++) hallVoice('triangle', 2200 + Math.random() * 1700, t0 + i * (0.035 + Math.random() * 0.02), 0.06, 0.05, lp);
+    const nb = ac.createBufferSource(), ln = Math.floor(ac.sampleRate * n * 0.05), bf = ac.createBuffer(1, ln, ac.sampleRate), dd = bf.getChannelData(0); for (let i = 0; i < ln; i++) dd[i] = (Math.random() * 2 - 1) * 0.35 * Math.min(1, i / 400) * (1 - i / ln);
+    nb.buffer = bf; const hf = ac.createBiquadFilter(); hf.type = 'highpass'; hf.frequency.value = 2500; nb.connect(hf); hf.connect(lp); nb.start(t0);
+  } else if (r < 0.86) {   // 大当たりのファンファーレ（遠く）
+    [0, 1, 2, 3, 3, 2, 3, 3].forEach((k, i) => hallVoice('sawtooth', sc[k], t0 + i * 0.11, 0.2, 0.05, lp));
+    [0, 0.12, 0.24].forEach(d => hallVoice('square', sc[0] / 2, t0 + d, 0.3, 0.05, lp));
+  } else {   // 「ドンッ」台を叩く・ドル箱を置く低い音
+    hallVoice('sine', 90, t0, 0.18, 0.12, lp); hallVoice('sine', 60, t0 + 0.02, 0.2, 0.1, lp);
+  }
+}
+function hallPA() {   // 店内放送の「ピンポンパンポン」
+  const ac = AC(); if (!ac || snd.mute || !hall.ev) return; const t0 = ac.currentTime + 0.05, lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2600; const gv = ac.createGain(); gv.gain.value = 0.9; lp.connect(gv); gv.connect(hall.ev);
+  [[880, 0], [698, 0.32], [784, 0.64], [587, 0.96]].forEach(([f, d]) => { hallVoice('sine', f, t0 + d, 0.55, 0.09, lp); hallVoice('sine', f * 2, t0 + d, 0.4, 0.025, lp); });
 }
 function hallUpdate(nowMs) {
   if (snd.hall > 0 && !hall.node && snd.ac) hallStart();
-  if (!hall.g) return; const ac = AC(); if (!ac) return;
-  const quiet = (typeof winActive === 'function' && winActive()) ? 0.45 : 1;
-  hall.g.gain.setTargetAtTime(snd.mute || custom.hall === 'off' ? 0 : snd.hall * 0.07 * quiet, ac.currentTime, 0.3);
-  if (nowMs > hall.next) { hall.next = nowMs + 7000 + Math.random() * 12000; if (hall.node && snd.hall > 0 && custom.hall !== 'off') hallDistant(); }
+  if (!hall.out) return; const ac = AC(); if (!ac) return;
+  const quiet = (typeof winActive === 'function' && winActive()) ? 0.45 : 1, off = snd.mute || custom.hall === 'off';
+  hall.out.gain.setTargetAtTime(off ? 0 : snd.hall * 2 * quiet, ac.currentTime, 0.3);
+  if (off || snd.hall <= 0) return;
+  if (nowMs > hall.next) { hall.next = nowMs + 1300 + Math.random() * 3200; hallDistant(); if (Math.random() < 0.3) setTimeout(() => { try { hallDistant(); } catch (e) {} }, 200 + Math.random() * 600); }
+  if (nowMs > hall.nextPA) { hall.nextPA = nowMs + 45000 + Math.random() * 50000; hallPA(); }
 }
 function noise(dur, gain, hp) {
   if (snd.mute) return; const ac = AC(); if (!ac) return;
@@ -1708,6 +1756,9 @@ function drawBgPat() {
     bgPatKey = key; bgPatCv = document.createElement('canvas'); bgPatCv.width = cv.width; bgPatCv.height = cv.height; const c = bgPatCv.getContext('2d'); let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     if (k === 'dots') { c.fillStyle = 'rgba(255,255,255,.07)'; for (let y = 0; y < H; y += 34) for (let x = ((y / 34) % 2) * 17; x < W; x += 34) { c.beginPath(); c.arc(x * S, y * S, 6 * S, 0, 7); c.fill(); } }
     else if (k === 'stars') { for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(255,248,200,${.12 + rnd() * .25})`; c.beginPath(); c.arc(rnd() * W * S, rnd() * H * S, (0.8 + rnd() * 1.6) * S, 0, 7); c.fill(); } }
+    else if (k === 'check') { c.fillStyle = 'rgba(255,255,255,.055)'; for (let y = 0; y < H; y += 30) for (let x = ((y / 30) % 2) * 30; x < W; x += 60) c.fillRect(x * S, y * S, 30 * S, 30 * S); }
+    else if (k === 'rainbow') { const cols = ['255,90,90', '255,190,60', '255,240,90', '90,220,120', '90,170,255', '170,110,255']; c.lineWidth = 16 * S; for (let i = -12; i < 40; i++) { c.strokeStyle = `rgba(${cols[(i + 60) % 6]},.07)`; c.beginPath(); c.moveTo((i * 16) * S, 0); c.lineTo((i * 16 + H * .5) * S, H * S); c.stroke(); } }
+    else if (k === 'hex') { c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 1.5 * S; const R = 16, w = R * 1.732; for (let row = 0, y = 0; y < H + R; row++, y += R * 1.5) for (let x = (row % 2) * w / 2; x < W + w; x += w) { c.beginPath(); for (let q = 0; q < 6; q++) { const a = Math.PI / 6 + q * Math.PI / 3; q ? c.lineTo((x + R * Math.cos(a)) * S, (y + R * Math.sin(a)) * S) : c.moveTo((x + R * Math.cos(a)) * S, (y + R * Math.sin(a)) * S); } c.closePath(); c.stroke(); } }
     else { c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 3 * S; for (let y = 10; y < H; y += 26) { c.beginPath(); for (let x = 0; x <= W; x += 8) { const yy = y + Math.sin(x / 22 + y / 40) * 6; x ? c.lineTo(x * S, yy * S) : c.moveTo(x * S, yy * S); } c.stroke(); } }
   }
   ctx.drawImage(bgPatCv, 0, 0);
@@ -1716,6 +1767,9 @@ function drawBallFx(r) {
   const k = custom.bfx; if (!k || k === 'none' || !partOwned(k) || !balls.length) return; const t = performance.now() / 1000, c = ctx; c.save();
   if (k === 'halo') { c.globalCompositeOperation = 'lighter'; for (const b of balls) { const g = c.createRadialGradient(b.x * S, b.y * S, r * 0.6, b.x * S, b.y * S, r * 3); g.addColorStop(0, 'rgba(255,230,150,.35)'); g.addColorStop(1, 'rgba(255,230,150,0)'); c.fillStyle = g; c.beginPath(); c.arc(b.x * S, b.y * S, r * 3, 0, 7); c.fill(); } }
   else if (k === 'spark') { c.fillStyle = '#fff8c8'; for (const b of balls) for (let j = 0; j < 2; j++) { const a = t * 5 + b.x * 0.7 + j * 3.1, d = r * (1.2 + 0.5 * Math.sin(t * 7 + j + b.y)), x = b.x * S + Math.cos(a) * d, y = b.y * S + Math.sin(a) * d, q = r * 0.28; c.globalAlpha = 0.5 + 0.5 * Math.sin(t * 9 + j * 2 + b.x); c.beginPath(); c.moveTo(x, y - q * 2); c.lineTo(x + q * .6, y); c.lineTo(x, y + q * 2); c.lineTo(x - q * .6, y); c.closePath(); c.fill(); c.beginPath(); c.moveTo(x - q * 2, y); c.lineTo(x, y + q * .6); c.lineTo(x + q * 2, y); c.lineTo(x, y - q * .6); c.closePath(); c.fill(); } }
+  else if (k === 'rainbow') { c.globalCompositeOperation = 'lighter'; for (const b of balls) { const g = c.createRadialGradient(b.x * S, b.y * S, r * 0.5, b.x * S, b.y * S, r * 2.6), h = (t * 120 + b.x * 0.5) % 360; g.addColorStop(0, `hsla(${h},100%,65%,.42)`); g.addColorStop(1, `hsla(${(h + 60) % 360},100%,60%,0)`); c.fillStyle = g; c.beginPath(); c.arc(b.x * S, b.y * S, r * 2.6, 0, 7); c.fill(); } }
+  else if (k === 'snow') { c.fillStyle = '#ffffff'; for (const b of balls) for (let j = 0; j < 3; j++) { const ph = (t * 0.9 + j / 3 + b.x * 0.013) % 1, x = b.x * S + Math.sin(ph * 6 + j * 2) * r * 1.2, y = b.y * S - r * 0.8 + ph * r * 3; c.globalAlpha = 0.85 * (1 - ph); c.beginPath(); c.arc(x, y, r * 0.2, 0, 7); c.fill(); } }
+  else if (k === 'flame') { c.globalCompositeOperation = 'lighter'; for (const b of balls) { const sp = Math.hypot(b.vx, b.vy) || 1, dx = -b.vx / sp, dy = -b.vy / sp; for (let j = 0; j < 4; j++) { const d = r * (0.6 + j * 0.55) + Math.sin(t * 20 + j + b.x) * r * 0.15, rr = r * (0.8 - j * 0.15); c.fillStyle = `rgba(255,${150 - j * 30},40,${0.38 - j * 0.07})`; c.beginPath(); c.arc(b.x * S + dx * d, b.y * S + dy * d, rr, 0, 7); c.fill(); } } }
   else if (k === 'heart') { c.fillStyle = '#ff7aa8'; for (const b of balls) { const x = b.x * S + r * 1.1, y = b.y * S - r * 1.5 - Math.sin(t * 4 + b.x) * r * 0.4, q = r * 0.55; c.globalAlpha = 0.85; c.beginPath(); c.moveTo(x, y + q); c.bezierCurveTo(x - q * 1.6, y - q * 0.2, x - q * 0.6, y - q * 1.2, x, y - q * 0.4); c.bezierCurveTo(x + q * 0.6, y - q * 1.2, x + q * 1.6, y - q * 0.2, x, y + q); c.fill(); } }
   c.restore();
 }
@@ -2847,16 +2901,16 @@ const CHEER = [
 function gachaReady() { return G.gacha.date !== todayKey(); }
 function openGacha() {
   if (!gachaReady()) {
-    openSub(`<h2 style="font-size:22px">🎁 応援ガチャ</h2><p style="text-align:center;font-weight:800;margin:12px 0">きょうはもう引いたよ。<br>また明日、応援に来てもらおう！</p><div style="text-align:center;font-size:11px;color:#8a6a30">応援カードは 図鑑 → ボン、パーツはタイトルの「カスタム」で使えるよ</div>${closeBtn}`);
+    openSub(`<h2 style="font-size:22px">🎁 応援ガチャ</h2><p style="text-align:center;font-weight:800;margin:12px 0">きょうはもう引いたよ。<br>また明日、応援に来てもらおう！</p><div style="text-align:center;font-size:11px;color:#8a6a30">パーツはタイトルの「カスタム」で使えるよ</div>${closeBtn}`);
     return;
   }
-  openSub(`<h2 style="font-size:22px">🎁 応援ガチャ</h2><p style="text-align:center;font-weight:800;margin:10px 0">1日1回、むりょうで引けるよ。<br>ボンちゃんが応援に来てくれる！</p><button class="big go" id="gGo">ガチャを引く</button>${closeBtn}`);
+  openSub(`<h2 style="font-size:22px">🎁 応援ガチャ</h2><p style="text-align:center;font-weight:800;margin:10px 0">1日1回、むりょうで引けるよ。<br>ボンちゃんが、カスタムパーツを持って応援に来てくれる！</p><button class="big go" id="gGo">ガチャを引く</button>${closeBtn}`);
   document.getElementById('gGo').onclick = () => {
-    const i = gachaRoll('bon');
+    const i = gachaRoll('parts');
     G.gacha.date = todayKey(); G.gacha.cards[i] = (G.gacha.cards[i] || 0) + 1; G.rec.gacha++; saveGame();
     const n = G.gacha.cards[i];
-    openSub(`<h2 style="font-size:22px">${PART_RARE[i] ? '🌈 レアカード！' : '🎁 ガチャカード'}</h2>${cardView(i, true)}
-      <div style="text-align:center;font-size:11px;color:#8a6a30">${n === 1 ? '新しいカードをゲット！' : `${n}枚目のカード`}　（明日また引けるよ）</div>${closeBtn}`);
+    openSub(`<h2 style="font-size:22px">${PART_RARE[i] ? '🌈 レアパーツ！' : '🎁 カスタムパーツ'}</h2>${cardView(i, true)}
+      <div style="text-align:center;font-size:11px;color:#8a6a30">${n === 1 ? '新しいパーツをゲット！' : `${n}個目のパーツ`}　（明日また引けるよ）</div>${closeBtn}`);
   };
 }
 
@@ -2887,9 +2941,9 @@ const HOWTO = [
   { t: '⑦ 保留の色で、先読み！', bon: [2, 0], say: 'あわわ……！ いろが変わったよ！？', b: ['保留のランプは、<b>色</b>で当たりそうな度合いを教えてくれるよ。<b>青</b>はふつう、<b>緑</b>は少しチャンス、<b>赤</b>はかなりアツい！ そして<b>虹色</b>が出たら……覚悟してね。', '回している最中に<b>予告</b>（ボンちゃんが横切る、画面が光る、など）が出ると、期待が高まるよ。ただし、予告が出ても外れることはあるし、出なくても当たることもあるんだ。', '保留の色も予告も、あくまで<b>お楽しみの演出</b>。当たりやすさを変えるものではないよ。'] },
   { t: '⑧ リーチ！', bon: [0, 1], say: 'リーチ！ ここからが本番でしょ！ アタシの勝負、見てなさい！', b: ['3つの図柄のうち2つがそろうと<b>リーチ</b>！ 最後の1つがそろえば大当たりだよ。', 'リーチには、ボンが1人で出てくるものや、みんなで協力するもの、<b>にじボン</b>が出てくる特別なものなどがあるよ。特別なほど、アツい！', '外れたときも落ち込まないで。リーチが見られるだけでも、ちょっとお得だよ。', '見たくない演出は、画面の<b>演出スキップ</b>ボタンで飛ばせるよ。'] },
   { t: '⑨ 図柄はボンちゃんたち', bon: [1, 2], say: 'みんな、わたしたちを応援してね〜！', b: ['図柄は、7人の<b>ボンちゃん</b>だよ。おこボン・にこボン・ひょえボン・もぐボン・ねむボン・てれボン、そして虹色の<b>にじボン</b>。', '大当たりするとその子が大活躍して、<b>図鑑</b>に登録されていくよ。メニューの「図鑑」で、集めた記録を見られるよ。', '図柄によって、大当たりのあとに<b>確変</b>になるか<b>時短</b>になるかが変わるよ。'] },
-  { t: '⑩ 景品交換所とガチャ', bon: [3, 1], say: '玉をためて、ガチャまわそ〜！ うち、わくわくするよ〜', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>ガチャ</b>は2種類。<b>ボンカード</b>（150UB）と<b>カスタムパーツ</b>（保留・予告の見た目）。パーツは300UBで、何回でも引けるよ。', '<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
+  { t: '⑩ 景品交換所とガチャ', bon: [3, 1], say: '玉をためて、ガチャまわそ〜！ うち、わくわくするよ〜', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>ガチャ</b>では<b>カスタムパーツ</b>（保留・予告・玉・盤面・効果音など）が出るよ。300UBで、何回でも引けるよ。', '<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
   { t: '⑪ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'ほかにも、<b>台の枠</b>（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）、図柄の見せ方、BGMなどを選べるよ。ガチャで集めたパーツで、もっと増えていくよ。'] },
-  { t: '⑫ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、ガチャで引いたカードの<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
+  { t: '⑫ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、図鑑で出会った<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
   { t: '⑬ セーブと、困ったとき', bon: [3, 3], say: 'こまったときは、ここを見てね〜！ うち、ごはんつくって待ってるよ〜', b: ['遊んだ記録は、このブラウザの中に<b>自動で保存</b>されるよ。ブラウザのデータを消したり、機種を変えたりすると、消えてしまうんだ。', '大事なデータは、設定の<b>「データのバックアップ」</b>でコードを保存しておこう。別の端末では、そのコードを読み込めば続きから遊べるよ。', '表示がおかしいときや、新しい版に変えたいときは、画面右上の<b>「更新」</b>ボタンを押してね。セーブは消えないよ。', '光の演出が苦手なときは、設定で<b>「光の演出：弱め」</b>にできるよ。長く遊びすぎないよう、ときどき休けいしてね。'] },
 ];
 $('bHow').addEventListener('click', () => openHowTo(0));
@@ -3095,8 +3149,8 @@ function showShareNow() {
   b.addEventListener('click', () => { hideShareNow(); openShare(); });
   document.body.appendChild(b); shareNowT = setTimeout(hideShareNow, 15000);
 }
-/* シェアで選べるのは、ガチャで引いたボンカード（通常・デフォルメ・顔アップのどれか）の柄のボンだけ */
-const shareOwn = bi => [bi, 40 + bi, 47 + bi].some(i => (G.gacha.cards[i] || 0) > 0);
+/* シェアで選べるのは、図鑑で出会ったボン（以前ガチャで引いたカードのボンも）だけ */
+const shareOwn = bi => bonOpen(bi) || [bi, 40 + bi, 47 + bi].some(i => (G.gacha.cards[i] || 0) > 0);
 function openShare() {
   const own = [0, 1, 2, 3, 4, 5, 6].filter(shareOwn);
   let bi = (typeof shareBi === 'number' && shareOwn(shareBi)) ? shareBi : (shareOwn(oshiBon()) ? oshiBon() : (own.length ? own[0] : oshiBon()));
@@ -3197,7 +3251,7 @@ function openSettings() {
     };
   };
   $('stWipe').onclick = () => {
-    openSub(`<h2 style="font-size:22px;color:#b3261e">データを削除</h2><div style="font-size:14px;line-height:1.7;margin:8px 0">持ち玉、ボンコイン、図鑑、ガチャで集めたカード、ミッション、記録、カスタムの設定が<b>すべて消えて、元にもどせないよ。</b>本当に消す？</div><button id="wipeGo" style="flex:none;width:100%;min-height:42px;border-radius:10px;border:2px solid #b3261e;background:#b3261e;color:#fff;font-weight:900">ぜんぶ消す</button><button id="wipeNo" style="flex:none;width:100%;min-height:42px;margin-top:8px;border-radius:10px">やめる</button>`);
+    openSub(`<h2 style="font-size:22px;color:#b3261e">データを削除</h2><div style="font-size:14px;line-height:1.7;margin:8px 0">持ち玉、ボンコイン、図鑑、ガチャで集めたパーツ、ミッション、記録、カスタムの設定が<b>すべて消えて、元にもどせないよ。</b>本当に消す？</div><button id="wipeGo" style="flex:none;width:100%;min-height:42px;border-radius:10px;border:2px solid #b3261e;background:#b3261e;color:#fff;font-weight:900">ぜんぶ消す</button><button id="wipeNo" style="flex:none;width:100%;min-height:42px;margin-top:8px;border-radius:10px">やめる</button>`);
     $('wipeNo').onclick = () => openSettings();
     $('wipeGo').onclick = () => {
       wiped = true;
@@ -3228,7 +3282,7 @@ function openShop(tab) {
       h += '</div>';
     });
   } else if (tab === 'gacha') {
-    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">ガチャは2種類。ほしいものに合わせて選べるよ（ボンカードは${GACHA_PRICE.bon}、ほかは${GACHA_PRICE.parts}UBで1回・何回でも）。引いた回数 ${sh.pulls}回</div>`;
+    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">ガチャで、カスタムパーツ（見た目・音）が手に入るよ（${GACHA_PRICE.parts}UBで1回・何回でも）。引いた回数 ${sh.pulls}回</div>`;
     Object.keys(GACHA_KIND).forEach(k => {
       const [nm, , ok] = GACHA_KIND[k], ids = GACHA_W.map((w, i) => i).filter(i => GACHA_W[i] > 0 && ok(i)), have = ids.filter(i => G.gacha.cards[i]).length;
       h += `<div style="${card}"><b>${nm}</b><br><span style="font-size:12px;font-weight:700">集めた ${have} / ${ids.length} 種</span>${btn('gacha:' + k, `${GACHA_PRICE[k]} UBで引く`, bonOwn() >= GACHA_PRICE[k])}</div>`;
@@ -3341,15 +3395,14 @@ const QUIZ_PACHI = [
 ];
 const QUIZ_GAME = [
   Q('玉の景品交換所は、メニューのどこにある？', ['「続きから」のすぐ下', '一番下', '設定の中', 'タイトルの上'], 'メニューの「続きから」のすぐ下にあるよ。'),
-  Q('ガチャは全部で何種類？', ['2種類', '1種類', '5種類', '10種類'], 'ボンカードとカスタムパーツの2種類だよ。'),
-  Q('ボンカードのガチャは、何UBで引ける？（UB＝ユートピアボン）', ['150UB', '300UB', '1000UB', '10UB'], 'ボンカードは150UB。ほかは300だよ。玉は先に両替するよ。'),
+  Q('ガチャで手に入るものは？', ['カスタムパーツ', 'ボンカード', '現金', '本物の玉'], 'ガチャではカスタムパーツが出るよ。'),
   Q('推しボンを選ぶと、色が変わらないのは？', ['ボタンの色', '液晶', '盤面', '玉と釘'], '液晶・盤面・玉・釘が推しボンの色になるよ。'),
   Q('通常変動曲の2曲は？', ['UTOPIA SPIN!!! と UTOPIA TONIGHT', 'WORLD PRISM と UTOPIA PRISM', 'BONBON FEVER!! と UTOPIA SPIN!!!', 'ボンちゃんマーチ と WORLD PRISM'], '通常変動曲は「UTOPIA SPIN!!!」と「UTOPIA TONIGHT」。期待度が高いほど「SPIN!!!」が流れやすいよ。'),
   Q('Bontifyを開いている間に流れる曲は？', ['WORLD PRISM', 'UTOPIA SPIN!!!', 'BONBON FEVER!!', 'ボンちゃんマーチ'], 'Bontifyでは「WORLD PRISM」が流れるよ。'),
   Q('大当たりのテーマ曲に選べるのは？', ['UTOPIA SPIN☆☆☆ と BONBON FEVER!!', 'WORLD PRISM と UTOPIA TONIGHT', 'ボンちゃんマーチ だけ', '魔法の言葉 だけ'], '大当たり曲は「UTOPIA SPIN☆☆☆」と「BONBON FEVER!!」から選べるよ。'),
   Q('ボンクイズは、1日に何問できる？', ['3問', '1問', '10問', '無制限'], '1日3問まで。正解するとボンコイン1枚もらえるよ。'),
   Q('応援ガチャは、1日に何回引ける？', ['1回', '3回', '10回', '無制限'], '応援ガチャは1日1回、コインを使わずに引けるよ。'),
-  Q('シェア画像でセリフを言うボンは、どこから選べる？', ['ガチャで引いたボンカードの柄', '図鑑の全員', '最初の3人だけ', '選べない'], 'ガチャで引いたカードの柄のボンから選べるよ。'),
+  Q('シェア画像でセリフを言うボンは、どこから選べる？', ['図鑑で出会ったボン', '図鑑の全員', '最初の3人だけ', '選べない'], '図鑑で出会ったボンから選べるよ。'),
   Q('台の枠に「ある」のは？', ['北欧風・アンデス風・アジア風・アフリカ風・中東風', '宇宙風', '海底風', 'ホラー風'], '台の枠には、北欧・アンデス・アジア・アフリカ・中東の民族風があるよ。'),
   Q('データを消さずに最新版にするボタンは？', ['右上の「更新」', '「玉戻し」', '「連続発射」', '「貸玉」'], '右上の「更新」を押すと、セーブを残したまま最新版になるよ。'),
   Q('BON UTOPIA を遊べるのは？', ['18歳以上', '6歳以上', '12歳以上', '何歳でも'], 'BON UTOPIA は18歳以上向けだよ。'),
@@ -3726,15 +3779,15 @@ function openCustom(tab) {
     grp('推しボンの飾り（台の横と液晶の隅に立ち絵。予告でポーズが変わる）', 'oshiDeco', custom.oshiDeco, { on: 'あり', off: 'なし' });
     grp('演出（予告・リーチ・大当たり）のイラスト', 'art', custom.art, { new: 'ポーズいろいろ', old: 'いつもの1枚' });
     const lk = (ttl, attr, items) => { h += `<div class="bgmh">${ttl}</div><div class="bgmsel" style="grid-template-columns:repeat(2,1fr)">` + items.map(([v, n, key]) => { const lock = key && !partOwned(key); return `<button ${lock ? 'disabled' : `data-lk="${attr}:${v}"`} class="${custom[attr] === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : ''}</small></button>`; }).join('') + '</div>'; };
-    lk('玉の飾り（見た目だけ）', 'bfx', [['none', 'なし'], ['halo', 'ひかり玉', 'halo'], ['spark', 'キラキラ玉', 'spark'], ['heart', 'ハート玉', 'heart']]);
-    lk('盤面のもよう（見た目だけ）', 'bg', [['none', 'なし'], ['dots', '水玉', 'dots'], ['stars', '星空', 'stars'], ['wave', 'なみ', 'wave']]);
+    lk('玉の飾り（見た目だけ）', 'bfx', [['none', 'なし'], ['halo', 'ひかり玉', 'halo'], ['spark', 'キラキラ玉', 'spark'], ['heart', 'ハート玉', 'heart'], ['rainbow', 'にじ玉', 'rainbow'], ['snow', '雪の玉', 'snow'], ['flame', 'ほのお玉', 'flame']]);
+    lk('盤面のもよう（見た目だけ）', 'bg', [['none', 'なし'], ['dots', '水玉', 'dots'], ['stars', '星空', 'stars'], ['wave', 'なみ', 'wave'], ['check', 'チェック', 'check'], ['rainbow', 'にじ', 'rainbow'], ['hex', 'ハニカム', 'hex']]);
     grp('玉の色', 'ball', custom.ball, BALL_COL, k => dot(`radial-gradient(circle at 35% 30%,${BALL_COL[k][1][0]},${BALL_COL[k][1][2]})`));
     grp('釘の色', 'nail', custom.nail, NAIL_COL, k => dot(`linear-gradient(90deg,${NAIL_COL[k][1][1]},${NAIL_COL[k][1][2]})`));
     grp('ボタンの色', 'ui', custom.ui, UI_THEME, k => dot(UI_THEME[k][1] ? `linear-gradient(${UI_THEME[k][1][0]},${UI_THEME[k][1][1]})` : 'linear-gradient(#fffbe8,#efcf72)'));
     grp('リーチのときの背景色', 'reach', custom.reach, REACH_TINT, k => dot(REACH_TINT[k][1] ? `rgb(${REACH_TINT[k][1]})` : '#ddd'));
   } else if (tab === 'snd') {
     h += '<div class="bgmh">効果音のセット（音の質感だけ変わるよ）</div><div class="bgmsel" style="grid-template-columns:repeat(1,1fr)">';
-    [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : '押すと試し聴き'}</small></button>`; });
+    [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['bell', 'ベル音セット', 'bell'], ['wood', '木の音セット', 'wood'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : '押すと試し聴き'}</small></button>`; });
     h += '</div><div class="bgmh">雰囲気の音</div><div class="bgmsel">';
     h += `<button data-tg="hall" class="${custom.hall !== 'off' ? 'on' : ''}">ホールのざわめき<small>${custom.hall !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
     h += '</div><div style="font-size:11px;color:#8a6a30;margin-top:6px;line-height:1.5">音量そのものは、設定の「音量」で、効果音・玉・ホールごとに変えられるよ。</div>';
@@ -3839,7 +3892,7 @@ const BF_TRACKS = [
   { id: 38, src: 'spin2', title: "予告にはボンちゃん通過や虹色フラッシュなど、いろいろあるのだ。虹が出たら、覚悟するがよい", cond: { k: 'spins', n: 240 } },
   { id: 39, src: 'bonus', title: "大当たり中は、我輩が画面の真ん中で踊るのだ。見よ、この華麗なステップを！", cond: { k: 'wins', n: 14 } },
   { id: 40, src: 'theme:3', title: "もぐボンは、大当たりのたびにおにぎりを一つ食べるのだ。画面の外でな。……我輩の分は残っておらぬ", cond: { k: 'wins', n: 18 } },
-  { id: 41, src: 'spin2', title: "ガチャのカードには、ボンたちの応援メッセージが付いておるのだ。我輩のカードは、特に出にくいのだぞ", cond: { k: 'plays', n: 12 } },
+  { id: 41, src: 'spin2', title: "ガチャのパーツは、見た目だけでなく音まで変えられるのだ。8bitサウンドは、特に出にくいのだぞ", cond: { k: 'plays', n: 12 } },
   { id: 42, src: 'special', title: "カスタムでは、保留の形や予告の見た目を変えられるのだ。我輩のおすすめは、ボンちゃん保留である", cond: { k: 'wins', n: 20 } },
   { id: 43, src: 'theme:1', title: "にこボンは友だちを連れてきたがるのだ。この台に、七人みんなで座れるとよいのだがな", cond: { k: 'spins', n: 280 } },
   { id: 44, src: 'spin2', title: "確率はおよそ三百分の一。当たらぬ日があるのは当然なのだ。それでも回すのが、人というものであるな", cond: { k: 'plays', n: 14 } },
