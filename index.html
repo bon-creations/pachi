@@ -221,7 +221,7 @@
         <div id="toolRow">
           <button id="bSpeed">🔒倍速</button>
           <button id="bBest" style="display:none">🤖ベスト角度</button>
-          <span class="tchip" id="tmRate" style="display:none"></span><span class="tchip" id="tmPL" style="display:none"></span><span class="tchip" id="tmNav" style="display:none"></span><span class="tchip" id="tmCh" style="display:none"></span><span class="tchip" id="tmFo" style="display:none"></span><button id="bNail" style="display:none">🔍釘ヨミ</button>
+          <span class="tchip" id="tmRate" style="display:none"></span><span class="tchip" id="tmPL" style="display:none"></span><span class="tchip" id="tmNav" style="display:none"></span><span class="tchip" id="tmCh" style="display:none"></span><button id="bNail" style="display:none">🔍釘ヨミ</button>
         </div>
         <div id="opts" style="display:none">
           <button id="bProb">🎰 確率 1/319</button><button id="bHow">❓ 遊び方</button>
@@ -434,7 +434,7 @@ const DIR_CFG = {
   yokokuCount: { win: [15, 40, 45], lose: [55, 35, 10] }, // 予告0/1/2個の重み
 };
 const BONUS = { rounds: 10, perRound: 10, perBall: 15, roundTimeout: 18, gap: 1.4, introTime: 7.2, premIntroTime: 12.5 };
-const PRIZE = { hes: 3, den: 1, sode: 5 };   // 賞球。ヘソ3・電チュー1・大入賞口15（BONUS.perBall）・袖入賞口5
+const PRIZE = { hes: 3, den: 1, sode: 4 };   // 賞球。ヘソ3・電チュー1・大入賞口15（BONUS.perBall）・袖入賞口4
 const SODE = [{ x: 82, y: 610, w: 22, h: 12 }, { x: 366, y: 612, w: 22, h: 12 }];   // 袖入賞口（一般入賞口）
 let chuckT = 0, attAnim = 0, lampT = 0, lastDraw = performance.now();   // 賞球（入賞したときに戻る玉）
 const DEN = { x: 426, y: 490, w: 34, h: 12 };   // 電チュー（右ヘソ）
@@ -690,7 +690,7 @@ function startNextSpin() {
   if (lcd.phase !== 'idle' || state.queue.length === 0) return;
   dm('spin'); dm('spin200'); artVar++;
   lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res); holdUpgrade();
-  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; if (hasTool('omen') && lcd.res.win) { toast('🔔 前兆あり！ この変動は当たりだよ'); try { sfxChance(); } catch (e) {} } state.spins++; G.life.spins++; sfxSpinStart();
+  lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; if (hasTool('omen')) omenCheck(); state.spins++; G.life.spins++; sfxSpinStart();
   if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
 }
@@ -794,17 +794,17 @@ function updateLCD(dt) {
 }
 function catchBall() {
   bonus.count++; bonus.gained += BONUS.perBall; state.have += BONUS.perBall; sfxCatch(); sfxJara();
-  const o = (G.sess.out = (G.sess.out | 0) + BONUS.perBall), cross = Math.floor(o / BOX_UNIT) > Math.floor((o - BONUS.perBall) / BOX_UNIT);
-  if (cross) { try { sfxBox(); toast(`ドル箱 ${Math.floor(o / BOX_UNIT)}箱目！`); } catch (e) {} }
+  const o = (G.sess.out = (G.sess.out | 0) + BONUS.perBall), U = sessUnit(), cross = Math.floor(o / U) > Math.floor((o - BONUS.perBall) / U);
+  if (cross) { try { sfxBox(); toast(`ドル箱 ${Math.floor(o / U)}箱目！`); } catch (e) {} }
   if (cross || o % 60 === 0) updateBoxStack(cross);
 }
 function sfxBox() { tone(170, 0.12, 'square', 0.2); noise(0.09, 0.22, 700); [880, 1175, 1568].forEach((f, i) => tone(f, 0.16, 'triangle', 0.16, 0, 0.1 + i * 0.07)); }
 function updateBoxStack(pop) {
   const el = document.getElementById('boxStack'); if (!el) return; const out = G.sess.out | 0;
   if (out <= 0) { el.style.display = 'none'; return; }
-  const n = Math.floor(out / BOX_UNIT), rem = out % BOX_UNIT, show = Math.min(n, 6); let h = '';
+  const U = sessUnit(), n = Math.floor(out / U), rem = out % U, show = Math.min(n, 6); let h = '';
   for (let i = 0; i < show; i++) h += `<i class="bx${pop && i === show - 1 ? ' new' : ''}"></i>`;
-  h += `<i class="bx part"><u style="width:${Math.round(rem / BOX_UNIT * 100)}%"></u></i><span>出玉 ${out.toLocaleString()}玉${n ? `（${n}箱）` : ''}</span>`;
+  h += `<i class="bx part"><u style="width:${Math.round(rem / U * 100)}%"></u></i><span>出玉 ${out.toLocaleString()}玉${n ? `（${n}箱）` : ''}</span>`;
   el.innerHTML = h; el.style.display = 'flex';
 }
 
@@ -1170,7 +1170,7 @@ function drawLCD(c) {
       col = HOLD_COL[k][0]; if (k === 'rainbow') col = calm ? '#ffd24d' : `hsl(${(performance.now() / 6) % 360},100%,60%)`;
     }
     drawHoldShape(c, holdDesign(), hx, hy, col, k, has);
-    if (has && hasTool('radar') && state.queue[i] && state.queue[i].win) { c.fillStyle = '#ff3d6e'; c.font = 'bold 9px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.fillText('当', hx, hy - 10); }   // 保留レーダー
+    if (has && hasTool('radar') && state.queue[i] && state.queue[i].win && state.queue[i].hshow && state.queue[i].hc && state.queue[i].hc !== 'blue') { c.fillStyle = '#ff3d6e'; c.font = 'bold 9px "Zen Maru Gothic", sans-serif'; c.textAlign = 'center'; c.fillText('当', hx, hy - 10); }   // 保留レーダー
   }
   { const need = needSide(), sdNow = sideOf(), ok = sdNow === need, blink = Math.floor(performance.now() / 380) % 2 === 0;
     const tx = need === 'R' ? '右打ち »' : '« 左打ち', cx = LCD.x + LCD.w / 2, cy = LCD.y + 10;
@@ -1658,14 +1658,13 @@ function step(h) {
 const TOOLS = [
   { id: 'speed', icon: '⏩', name: '倍速ボタン', price: 3000, desc: '玉の動きと図柄の変動を、2倍・3倍の速さで進める。打ち出しも速くなるよ。' },
   { id: 'guide', icon: '🎯', name: '玉の軌道ガイド', price: 4000, desc: 'いまのハンドルで打つと、玉がどこを通るかの予測線を盤面に出す（釘のはね方は毎回ちょっと変わるので、目安だよ）。' },
-  { id: 'radar', icon: '📡', name: '保留レーダー', price: 5500, desc: '保留の中に「当たり」が入っていると、そのランプに「当」のしるしが出る。' },
-  { id: 'omen', icon: '🔔', name: '当たり前兆アラート', price: 4500, desc: '当たりの変動が始まった瞬間に、こっそり音とお知らせで教えてくれる。演出より先にわかるよ。' },
+  { id: 'radar', icon: '📡', name: '保留レーダー', price: 5500, desc: '保留ランプの色が変わった（先読みが出た）当たり保留に、「当」のしるしが出る。青のままの保留はわからないよ。' },
+  { id: 'omen', icon: '🔔', name: '当たり前兆アラート', price: 4500, desc: '予告やリーチが出そうな変動が始まると、音とお知らせで期待度を教えてくれる。当たりかどうかまではわからないよ。' },
   { id: 'nav', icon: '🧭', name: 'ヘソ入賞ナビ', price: 5000, desc: 'いまのハンドル角度で、玉がどれくらいの確率で入賞しそうかを％でいつも表示する。' },
   { id: 'chain', icon: '🔥', name: '連チャンカウンター', price: 3000, desc: '今の連チャン数と、これまでの最高連チャンをいつも表示する。' },
   { id: 'hold', icon: '⏸', name: 'オート保留消化', price: 3500, desc: '連続発射のとき、保留がいっぱいになったら自動で打つのをやめて、減ったらまた打ち始める（左打ちのとき）。玉のムダ打ちを減らせるよ。' },
   { id: 'trail', icon: '✨', name: '玉の残像トレイル', price: 2500, desc: '玉の通ったあとに光の線がのこる。見た目だけのツール。' },
   { id: 'nail', icon: '🔍', name: '釘ヨミ鑑定', price: 4000, desc: '「釘ヨミ」ボタンで、この台のヘソの入りやすさをS〜Dで鑑定してくれる。' },
-  { id: 'fortune', icon: '🍀', name: '今日の運勢', price: 3000, desc: '毎日かわるラッキー図柄を表示。その図柄で大当たりすると、UBのおまけがもらえる。' },
   { id: 'autoR', icon: '➡️', name: '右打ち自動きりかえ', price: 4500, desc: '大当たりや時短・確変に入ったらハンドルを自動で右打ちに、終わったら左打ちに切りかえる。うっかり打ちミスがなくなるよ。' },
   { id: 'meter', icon: '📊', name: '回転率メーター', price: 3500, desc: '遊んでいる画面に、いまの回転率（1000円あたり）とボーダーとの差をいつも表示する。' },
   { id: 'ledger', icon: '💰', name: '収支メーター', price: 3000, desc: '遊び始めてからの玉の増減（収支）を、いつも画面に表示する。' },
@@ -1683,7 +1682,6 @@ function updTools() {
   { if (sess0 === null) sess0 = totalBalls(); const d = totalBalls() - sess0; want(tp, hasTool('ledger'), `収支 ${d >= 0 ? '+' : ''}${d}玉`); if (tp) tp.style.color = d >= 0 ? '#1f7a3a' : '#b03030'; }
   want($('tmCh'), hasTool('chain'), `連チャン ${G.chain | 0}（最高 ${G.rec.bestChain | 0}）`);
   want($('tmNav'), hasTool('nav'), navPct === null ? '入賞率 計算中' : `入賞率 約${navPct}％`);
-  { const f = fortuneSym(); want($('tmFo'), hasTool('fortune'), `🍀 ラッキー図柄：${SYM_DEFS[f].label}`); }
   { const bn = $('bNail'); if (bn) { const d = hasTool('nail') ? '' : 'none'; if (bn.style.display !== d) bn.style.display = d; } }
   if (hasTool('autoR')) { const need = needSide(); if (need !== lastNeed) { lastNeed = need; if (need === 'R') { sideLock = 'R'; setSide('R'); toast('右打ちに自動で切りかえたよ'); } else { sideLock = null; if (sideOf() !== 'L') setSide('L'); updateDial(); toast('左打ちにもどしたよ'); } } }
 }
@@ -1698,7 +1696,6 @@ async function navUpdate() {
   navBusy = false;
 }
 setInterval(() => { try { navUpdate(); } catch (e) {} }, 1500);
-function fortuneSym() { const d = new Date(), n = d.getFullYear() * 400 + (d.getMonth() + 1) * 31 + d.getDate(); return ((n * 2654435761) >>> 0) % SYM_DEFS.length; }
 async function nailAppraise() {
   if (bestBusy) return; bestBusy = true; const need = needSide(); toast('釘ヨミ中…'); const bn = $('bNail'); if (bn) bn.textContent = '鑑定中…';
   try {
@@ -2185,6 +2182,16 @@ function drawBoardDeco() {   // 動く飾り：ボンの顔のシャボン玉が
   c.restore();
 }
 /* 変動中の期待度（予告・リーチが出ているあいだ）。台の横のランプの色と走り方が変わる：通常＝金のまたたき／チャンス＝緑／大チャンス＝青／激アツ＝赤／プレミアム＝虹 */
+function omenCheck() {   // 予告・リーチが出る変動だけ、期待度つきで教える（当たりの確定ネタバレはしない）
+  try {
+    const P = lcd.plan; if (!P) return; let k = -1;
+    P.yokoku.forEach(y => { k = Math.max(k, YOKOKU[y.id].tier); });
+    if (P.reach) k = Math.max(k, REACHES[P.reach].tier + (P.premium ? 1 : 0));
+    if (k < 2) return;
+    toast(k >= 4 ? '予告の気配…！ 期待度 ★★★★ とても熱い' : k === 3 ? '予告の気配… 期待度 ★★★ 熱い' : '予告の気配… 期待度 ★★ ちょっと期待');
+    sfxChance();
+  } catch (e) {}
+}
 function lampTier() {
   try {
     if (lcd.phase !== 'spin' || !lcd.plan || lcd.skipped) return -1; const P = lcd.plan, t = lcd.t; let k = 0, seen = false;
@@ -2455,7 +2462,7 @@ function borderInfo() {
 }
 const todayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const newG = () => ({ login: { last: '', streak: 0, total: 0 }, daily: { date: '', m: {}, claimed: {} }, shop: { lines: {}, extra: 0, cheer: [0, 0, 0, 0, 0, 0, 0], pulls: 0 }, gacha: { date: '', cards: {} },
-  dex: { sym: {}, symSeen: {}, yk: {}, rc: {}, sp: {}, bon: {} }, rec: { bestChain: 0, kaku: 0, jitan: 0, seven: 0, premium: 0, den: 0, gacha: 0, quizOk: 0, quizAll: 0 }, ach: {}, chain: 0, quiz: { date: '', count: 0, ok: 0, asked: [] }, life: { spins: 0, wins: 0, plays: 0 }, hist: [], lastWinSp: 0, stock: { n: 0 }, sess: { out: 0, lent: 0, counted: 0 } });
+  dex: { sym: {}, symSeen: {}, yk: {}, rc: {}, sp: {}, bon: {} }, rec: { bestChain: 0, kaku: 0, jitan: 0, seven: 0, premium: 0, den: 0, gacha: 0, quizOk: 0, quizAll: 0 }, ach: {}, chain: 0, quiz: { date: '', count: 0, ok: 0, asked: [] }, life: { spins: 0, wins: 0, plays: 0 }, hist: [], lastWinSp: 0, stock: { n: 0 }, sess: { out: 0, lent: 0, counted: 0, rate: 4 } });
 let G = newG();
 function dailyCheck() { const t = todayKey(); if (G.daily.date !== t) G.daily = { date: t, m: {}, claimed: {} }; }
 const WEEKLY = [
@@ -2479,7 +2486,6 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
   MODE.k = 'bonus'; MODE.left = 0;
   dexMark('sym', res.symIdx); if (res.symIdx >= 7 && res.symIdx <= 13) bonSeen(res.symIdx - 7);
   if (res.symIdx === SEVEN) G.rec.seven++;
-  if (hasTool('fortune') && res.symIdx === fortuneSym()) { G.shop.bon = bonOwn() + 300; toast('🍀 ラッキー図柄！ UBおまけ +300'); }
   if (typeof bgmCfg.sel === 'number') G.rec.oshiMask = (G.rec.oshiMask | 0) | (1 << bgmCfg.sel);   // どの推しボンで大当たりしたか（実績用。おまかせ設定のときは数えない）
   dm('win');
 }
@@ -2586,10 +2592,10 @@ function renderMenu() {
   }
   $('menuRec').innerHTML = `遊技記録：遊技 ${state.plays}回 ／ 打った玉 ${state.shot} ／ 入賞 ${state.hit} ／ 通常回転 ${state.spins} ／ 大当たり ${state.wins}回 ／ 最高持ち玉 ${state.maxHave}`;
   const rb = $('menuBtns').querySelector('#mResume'); if (rb) rb.onclick = () => beginPlay(false);
-  const sb = $('menuBtns').querySelector('#mStock'); if (sb) sb.onclick = () => { const n = Math.min(G.stock.n | 0, 500); if (n < 100) return; G.stock.n -= n; state.have += n; G.sess = { out: 0, lent: 0, counted: 0 }; state.plays++; G.life.plays++; beginPlay(true); toast(`貯玉から ${n}玉 ひきだしたよ`); };
+  const sb = $('menuBtns').querySelector('#mStock'); if (sb) sb.onclick = () => { const n = Math.min(G.stock.n | 0, 500); if (n < 100) return; G.stock.n -= n; state.have += n; autoCount(); G.sess = { out: 0, lent: 0, counted: 0, rate: save.rate }; state.plays++; G.life.plays++; beginPlay(true); toast(`貯玉から ${n}玉 ひきだしたよ`); };
   $('menuBtns').querySelectorAll('[data-rate]').forEach(b => b.onclick = () => {
     const r = +b.dataset.rate; if (!useCoin()) return;
-    save.rate = r; state.have += RATES[r].lend; G.sess = { out: 0, lent: RATES[r].lend, counted: 0 }; state.plays++; G.life.plays++; beginPlay(true);
+    save.rate = r; state.have += RATES[r].lend; autoCount(); G.sess = { out: 0, lent: RATES[r].lend, counted: 0, rate: r }; state.plays++; G.life.plays++; beginPlay(true);
   });
 }
 function showMenu() { bgmStop(); playing = false; firing = false; autoFire = false; $('bAuto').textContent = '連続発射 OFF'; $('bAuto').classList.remove('on'); returnBalls(); saveGame(); renderMenu(); $('empty').classList.remove('show'); $('menu').classList.add('show'); }
@@ -2718,6 +2724,20 @@ const EMO_SVG = {
   '❌': '<path d="M5 5l14 14M19 5L5 19" stroke="#e0382a" stroke-width="4" stroke-linecap="round"/>',
   '🔥': '<path d="M12 2.500c1 3.500 5.500 5.500 5.500 11a5.500 5.500 0 01-11 0c0-2 1-3.500 2-4.500 0 1.500.8 2.500 1.800 2.500C10.200 8.500 10.500 5 12 2.500z" fill="#ff8a2a" stroke="#d6541a" stroke-width="1.100" stroke-linejoin="round"/><path d="M12 12c1.800 1.800 2.800 2.800 2.800 4.300a2.800 2.800 0 01-5.600 0c0-1.500 1.200-2.500 2.800-4.300z" fill="#ffe27a"/>',
   '🎵': '<path d="M9 17V5l11-2v12" fill="none" stroke="#2f64c8" stroke-width="2" stroke-linejoin="round"/><circle cx="6.500" cy="17.500" r="3" fill="#2f64c8"/><circle cx="17.500" cy="15.500" r="3" fill="#2f64c8"/>',
+  '✨': '<path d="M10 3l1.800 5.200L17 10l-5.200 1.800L10 17l-1.800-5.200L3 10l5.200-1.800z" fill="#ffd24d" stroke="#d99a1c" stroke-width="1.100" stroke-linejoin="round"/><path d="M18 14l.9 2.100L21 17l-2.100.9L18 20l-.9-2.100L15 17l2.100-.9z" fill="#ffe9a0" stroke="#d99a1c" stroke-width=".8" stroke-linejoin="round"/>',
+  '🖼': '<rect x="3" y="4" width="18" height="16" rx="2" fill="#fff8e0" stroke="#b57a12" stroke-width="1.600"/><circle cx="9" cy="10" r="2" fill="#f2b632"/><path d="M4.500 18l5-5 3.500 3.500 2.500-2.500 4 4z" fill="#3fa564"/>',
+  '🏠': '<path d="M3 11l9-7.500L21 11" fill="none" stroke="#b5483a" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.500 10v10h13V10L12 4.800z" fill="#ffe2b0" stroke="#b57a12" stroke-width="1.300" stroke-linejoin="round"/><rect x="10" y="14" width="4" height="6" rx=".8" fill="#e0506a"/>',
+  '🤖': '<rect x="4" y="7" width="16" height="12" rx="3" fill="#cfd5e0" stroke="#5a6577" stroke-width="1.500"/><path d="M12 7V3.500" stroke="#5a6577" stroke-width="1.600" stroke-linecap="round"/><circle cx="12" cy="3.300" r="1.400" fill="#e0506a"/><circle cx="9" cy="12" r="1.800" fill="#2f64c8"/><circle cx="15" cy="12" r="1.800" fill="#2f64c8"/><path d="M9 16h6" stroke="#5a6577" stroke-width="1.500" stroke-linecap="round"/>',
+  '🧭': '<circle cx="12" cy="12" r="9.500" fill="#fff8e0" stroke="#b57a12" stroke-width="1.700"/><path d="M12 5l3 7-3 7-3-7z" fill="#e0506a"/><path d="M12 12l3 0-3 7-3-7z" fill="#fff" stroke="#b57a12" stroke-width=".6"/><circle cx="12" cy="12" r="1.200" fill="#5a6577"/>',
+  '➡': '<path d="M4 12h14M13 6l6 6-6 6" fill="none" stroke="#2f64c8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>',
+  '⛶': '<path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round"/>',
+  '💰': '<path d="M8 4.500h8l-2 3.500h-4z" fill="#b57a12"/><path d="M9.500 8C5 10.500 3.500 14 5.500 17.500c1.500 2.500 11.500 2.500 13 0C20.500 14 19 10.500 14.500 8z" fill="#f2b632" stroke="#b57a12" stroke-width="1.400" stroke-linejoin="round"/><text x="12" y="17" text-anchor="middle" font-size="8.500" font-weight="900" fill="#7a4a08" font-family="sans-serif">UB</text>',
+  '💻': '<rect x="4.500" y="5" width="15" height="10.500" rx="1.500" fill="#cfe3ff" stroke="#5a6577" stroke-width="1.500"/><path d="M2.500 18.500h19l-1.500-3h-16z" fill="#98a2b6" stroke="#5a6577" stroke-width="1.200" stroke-linejoin="round"/>',
+  '📡': '<path d="M8 20l4-9 4 9" fill="none" stroke="#5a6577" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="9" r="2.200" fill="#e0506a"/><path d="M7.500 5.500a6.500 6.500 0 000 7M16.500 5.500a6.500 6.500 0 010 7" fill="none" stroke="#2f64c8" stroke-width="1.800" stroke-linecap="round"/>',
+  '⏸': '<rect x="6" y="5" width="4" height="14" rx="1.200" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.200" fill="currentColor"/>',
+  '🔊': '<path d="M4 9.500h3.500L12 5.500v13l-4.500-4H4z" fill="#5a6577"/><path d="M15 9a4 4 0 010 6M17.500 6.500a7.500 7.500 0 010 11" fill="none" stroke="#2f64c8" stroke-width="2" stroke-linecap="round"/>',
+  '🔔': '<path d="M12 3.500a5.500 5.500 0 00-5.500 5.500c0 5-2 6-2 6.500h15c0-.5-2-1.500-2-6.500A5.500 5.500 0 0012 3.500z" fill="#ffd24d" stroke="#b57a12" stroke-width="1.400" stroke-linejoin="round"/><path d="M10 18.500a2 2 0 004 0" fill="#e0506a"/>',
+  '⏩': '<path d="M3.500 5.500l8 6.500-8 6.500z" fill="#2f64c8"/><path d="M12.500 5.500l8 6.500-8 6.500z" fill="#2f64c8"/>',
 };
 const EMO_RE = new RegExp('(' + Object.keys(EMO_SVG).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\uFE0F?', 'g');
 const emoHtml = ch => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${EMO_SVG[ch]}</svg>`;
@@ -2957,14 +2977,14 @@ const HOWTO = [
   { t: '① パチンコって、なにするの？', bon: [1, 1], say: 'ようこそ〜！ いっしょに遊ぼうね！', b: ['鉄の玉を<b>打ち出して</b>、台の真ん中にある<b>スロット（液晶）</b>で図柄がそろうと<b>大当たり</b>！ 大当たり中は玉がどんどん増えるよ。', 'この「BON UTOPIA」は<b>完全無料</b>。お金は一切かからないし、換金もできないから安心してね。'] },
   { t: '② 玉を打つ（左打ち）', bon: [0, 0], say: 'ほら、ちゃんと狙って打ちなさいよ！ アタシが見てるんだから！', b: ['画面の<b>左打ち</b>ボタンのときは、玉を弱めに打つよ。玉は<b>釘</b>に当たってはね返りながら落ちていくんだ。', '下の方にある<b>スタートチャッカー</b>（小さな入口）に玉が入ると、スロットが<b>1回まわる</b>！ これが「抽選」だよ。', '押しっぱなしで打ち続けてもいいし、<b>連続発射</b>をONにすると自動で打ってくれるよ。', '玉の通り道は、ハンドルの角度で変わるよ。入りやすい角度を探すのも、パチンコの楽しさ！（あとで出てくる<b>便利ツール</b>が助けてくれるよ）'] },
   { t: '③ 「保留」ってなに？', bon: [3, 0], say: 'じゅんばん待ちだよ〜。ならんで待つの、うち、とくいだよ〜', b: ['スロットが回っている間に、また玉がチャッカーに入ったら……順番待ちとして<b>保留</b>にたまっていくよ（最大8つ）。', '回転が終わると、保留が<b>1つずつ</b>消化されて、次のスロットが回るよ。'] },
-  { t: '④ 大当たり！', bon: [1, 2], say: 'やった〜！ 大当たりだよ！ みんなでお祝いしよ！', b: ['図柄がそろったら<b>大当たり</b>！ 全部で<b>10ラウンド</b>あるよ。', '大当たり中は<b>アタッカー</b>（大きな入口）が開くから、そこにどんどん玉を入れよう。入れた分だけ玉が増えるよ！', '増えた玉は、<b>持ち玉</b>になるよ。しかも出玉は<b>ドル箱</b>になって、盤面の左下に積み上がっていくんだ（1箱＝1000玉）。箱が増えるたびに「ガコッ」と鳴るよ！'] },
+  { t: '④ 大当たり！', bon: [1, 2], say: 'やった〜！ 大当たりだよ！ みんなでお祝いしよ！', b: ['図柄がそろったら<b>大当たり</b>！ 全部で<b>10ラウンド</b>あるよ。', '大当たり中は<b>アタッカー</b>（大きな入口）が開くから、そこにどんどん玉を入れよう。入れた分だけ玉が増えるよ！', '増えた玉は、<b>持ち玉</b>になるよ。しかも出玉は<b>ドル箱</b>になって、盤面の左下に積み上がっていくんだ（4円は1000玉、1円は4000玉で1箱）。箱が増えるたびに「ガコッ」と鳴るよ！'] },
   { t: '⑤ 確変と時短（右打ち）', bon: [0, 2], say: 'あんた、右打ちよ！ 間違えたら承知しないからね！', b: ['大当たりが始まったら、自分で<b>右打ち</b>に切りかえよう（「右打ち」ボタンでハンドルを右に固定。画面にも「右打ち」と出るよ）。左に打つと玉がムダになるから注意！右側にある<b>電チュー</b>という入口が開いて、玉が入りやすくなるんだ。', '<b>確変</b>（50回転）は、いちばんおいしいモード！ この間に当たると、また大当たりチャンス。', '<b>時短</b>（100回転）は、玉が減りにくいモード。どちらも終わったら、「左打ち」ボタンで<b>左打ち</b>にもどそう。', '確変図柄の大当たりでも、最終ラウンドで右の<b>V</b>（ピンクの入口）に玉を入れないと、<b>確変にならず時短</b>になるよ（ラッキートリガー）。', '大当たりなしで通常のまま<b>800回転</b>回すと、<b>遊タイム</b>で時短が始まるよ（データカウンターで残りが見られる）。', '盤面の左下・右下の<b>袖入賞口</b>に入ると5個、アタッカーは1個15個、ヘソは3個戻るよ。リーチ中の<b>PUSH!</b>は、押すと派手になるおまけ演出（Enterキーでも押せる）。'] },
   { t: '⑥ 玉とボンコイン', bon: [5, 1], say: 'コ、コインは1時間に1枚、もどります……', b: ['遊び始めるときに、<b>ボンコイン1枚</b>で玉を借りるよ。<b>4円パチンコ</b>は250玉でじっくり、<b>1円パチンコ</b>は1000玉でどんどん打てる。', 'ボンコインは<b>1時間に1枚</b>自動で回復するよ（上限5枚）。', 'ボンコインで借りた玉を<b>貸玉</b>、増やして手元に残った玉を<b>持ち玉</b>というよ。打った玉は、先に貸玉から使われて、なくなったら持ち玉が使われるんだ。', '持ち玉は、<b>貯玉</b>として預けておけるよ（最大3万玉）。次に遊ぶときに「<b>貯玉で遊ぶ</b>」を選ぶと、ボンコインを使わずに打てる。これが<b>持ち玉遊技</b>！ 持ち玉で打つほど、長く遊べるよ。', 'あとは、玉を打って、ワクワクするだけ！ 楽しんでね。'] },
   { t: '⑦ 保留の色で、先読み！', bon: [2, 0], say: 'あわわ……！ いろが変わったよ！？', b: ['保留のランプは、<b>色</b>で当たりそうな度合いを教えてくれるよ。<b>青</b>はふつう、<b>緑</b>は少しチャンス、<b>赤</b>はかなりアツい！ そして<b>虹色</b>が出たら……覚悟してね。', '回している最中に<b>予告</b>（ボンちゃんが横切る、画面が光る、など）が出ると、期待が高まるよ。ただし、予告が出ても外れることはあるし、出なくても当たることもあるんだ。', '保留の色も予告も、あくまで<b>お楽しみの演出</b>。当たりやすさを変えるものではないよ。'] },
   { t: '⑧ リーチ！', bon: [0, 1], say: 'リーチ！ ここからが本番でしょ！ アタシの勝負、見てなさい！', b: ['3つの図柄のうち2つがそろうと<b>リーチ</b>！ 最後の1つがそろえば大当たりだよ。', 'リーチには、ボンが1人で出てくるものや、みんなで協力するもの、<b>にじボン</b>が出てくる特別なものなどがあるよ。特別なほど、アツい！', '外れたときも落ち込まないで。リーチが見られるだけでも、ちょっとお得だよ。', '見たくない演出は、画面の<b>演出スキップ</b>ボタンで飛ばせるよ。'] },
   { t: '⑨ 図柄はボンちゃんたち', bon: [1, 2], say: 'みんな、わたしたちを応援してね〜！', b: ['図柄は、7人の<b>ボンちゃん</b>だよ。おこボン・にこボン・ひょえボン・もぐボン・ねむボン・てれボン、そして虹色の<b>にじボン</b>。', '大当たりするとその子が大活躍して、<b>図鑑</b>に登録されていくよ。メニューの「図鑑」で、集めた記録を見られるよ。', '図柄によって、大当たりのあとに<b>確変</b>になるか<b>時短</b>になるかが変わるよ。'] },
   { t: '⑩ 景品交換所と計数', bon: [3, 1], say: '玉をためて、お菓子もぬいぐるみも、ぜ〜んぶほしいな〜！', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>景品</b>タブでは、お菓子・日用品・ぬいぐるみ・特大景品の全23種を、UBで交換できるよ。集めた数で称号も付くんだ。ぜんぶ<b>ゲームの中だけ</b>の景品で、お金とは関係ないから安心してね。', '大当たりで増えたドル箱は、景品カウンターの<b>計数機</b>で数えよう。ジャラジャラ数えると、箱の数に合わせて<b>UBのおまけ</b>がもらえるよ。', '<b>貯玉</b>タブでは、持ち玉を預けたり、ひきだしたりできるよ。持ち玉で打った割合は<b>持ち玉比率</b>として記録されるよ。', '<b>ガチャ</b>では<b>カスタムパーツ</b>（保留・予告・玉・盤面・効果音など）が出るよ。<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
-  { t: '⑪ 便利ツール', bon: [0, 3], say: 'まあ、使えるものは使いなさいよ。アタシは自力で入れるけどね！', b: ['<b>景品交換所の「ツール」</b>では、UBで便利な道具を買えるよ。いちど買えばずっと使えるんだ。', '<b>打ちやすくなる</b>：<b>倍速</b>（回転がはやくなる）、<b>玉の軌道ガイド</b>（玉の通り道を予想して線で見せる）、<b>自動ベスト角度</b>（いちばん入りやすい角度を探して合わせる）、<b>ヘソ入賞ナビ</b>（いまの角度の入りやすさを％で表示）、<b>釘ヨミ鑑定</b>（台の入りやすさをS〜Dで鑑定）、<b>右打ち自動きりかえ</b>、<b>オート保留消化</b>（保留がいっぱいなら打つのをお休み）。', '<b>わかりやすくなる</b>：<b>保留レーダー</b>（保留の当たりをこっそり表示）、<b>当たり前兆アラート</b>（当たりの変動が始まると音とお知らせ）、<b>回転率メーター</b>、<b>収支メーター</b>、<b>連チャンカウンター</b>。', '<b>楽しくなる</b>：<b>玉の残像トレイル</b>（玉が光の線を残す）、<b>今日の運勢</b>（ラッキー図柄で当たるとUBのおまけ）。', '買ったツールは、<b>カスタムの「ツール」タブ</b>で、いつでもON・OFFできるよ。'] },
+  { t: '⑪ 便利ツール', bon: [0, 3], say: 'まあ、使えるものは使いなさいよ。アタシは自力で入れるけどね！', b: ['<b>景品交換所の「ツール」</b>では、UBで便利な道具を買えるよ。いちど買えばずっと使えるんだ。', '<b>打ちやすくなる</b>：<b>倍速</b>（回転がはやくなる）、<b>玉の軌道ガイド</b>（玉の通り道を予想して線で見せる）、<b>自動ベスト角度</b>（いちばん入りやすい角度を探して合わせる）、<b>ヘソ入賞ナビ</b>（いまの角度の入りやすさを％で表示）、<b>釘ヨミ鑑定</b>（台の入りやすさをS〜Dで鑑定）、<b>右打ち自動きりかえ</b>、<b>オート保留消化</b>（保留がいっぱいなら打つのをお休み）。', '<b>わかりやすくなる</b>：<b>保留レーダー</b>（色が変わった当たり保留に「当」）、<b>当たり前兆アラート</b>（予告・リーチが出そうだと期待度をお知らせ）、<b>回転率メーター</b>、<b>収支メーター</b>、<b>連チャンカウンター</b>。', '<b>楽しくなる</b>：<b>玉の残像トレイル</b>（玉が光の線を残す）。', '買ったツールは、<b>カスタムの「ツール」タブ</b>で、いつでもON・OFFできるよ。'] },
   { t: '⑫ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'カスタムは「<b>見た目・保留・予告・音・ツール・BGM</b>」の6つ。台の枠（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）や、図柄の見せ方、BGMなどを選べるよ。', '<b>ガチャのパーツ</b>で、<b>玉の飾り</b>（ひかり・キラキラ・ハート・にじ・雪・ほのお）、<b>盤面のもよう</b>（水玉・星空・なみ・チェック・にじ・ハニカム）、<b>効果音セット</b>（チャイム・ベル・木の音・8bit）が増えていくよ。', '<b>音</b>タブでは、ホールのざわめきやリーチの鼓動のON・OFFもできるよ。音の大きさは、設定の「音量」で変えられるよ。'] },
   { t: '⑬ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、図鑑で出会った<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
   { t: '⑭ セーブと、困ったとき', bon: [3, 3], say: 'こまったときは、ここを見てね〜！ うち、ごはんつくって待ってるよ〜', b: ['遊んだ記録は、このブラウザの中に<b>自動で保存</b>されるよ。ブラウザのデータを消したり、機種を変えたりすると、消えてしまうんだ。', '大事なデータは、設定の<b>「データのバックアップ」</b>でコードを保存しておこう。別の端末では、そのコードを読み込めば続きから遊べるよ。', '表示がおかしいときや、新しい版に変えたいときは、画面右上の<b>「更新」</b>ボタンを押してね。セーブは消えないよ。', '光の演出が苦手なときは、設定で<b>「光の演出：弱め」</b>にできるよ。長く遊びすぎないよう、ときどき休けいしてね。'] },
@@ -3293,6 +3313,7 @@ function openSettings() {
 
 /* ---------- 景品・貯玉・計数（ゲームの中だけの遊び。お金とは関係ない） ---------- */
 const STOCK_MAX = 30000;
+const sessUnit = () => (G.sess && G.sess.rate === 1) ? BOX_UNIT * 4 : BOX_UNIT;   // ドル箱1箱＝UB4000ぶん（4円は1000玉・1円は4000玉）
 const GOOD_TITLES = [[3, '景品ビギナー'], [8, 'ホールの常連'], [14, '景品マスター'], [99, '景品コンプリート']];
 const GOODS = [
   { id: 'sn1', k: 'snack', ch: '菓', col: '#e25b3a', name: 'おこボンの激辛せんべい', price: 600, desc: 'ピリッと辛い。おこボンの大好物。' },
@@ -3313,19 +3334,25 @@ const GOODS = [
   { id: 'gr3', k: 'grand', ch: '特', col: '#d94fa0', name: '虹色の特大ボンバルーン', price: 40000, desc: '空に浮かべると、町じゅうから見える。' },
   { id: 'gr4', k: 'grand', ch: '特', col: '#e0a820', name: 'ボン島ごしょうたい券', price: 60000, desc: 'ボンたちが島で待っている。ゲームの中だけの記念品。' },
 ];
+function countGrant() {   // まだ数えていないドル箱の分だけ、おまけを計算して渡す（二重取りしない）
+  const U = sessUnit(), pend = (G.sess.out | 0) - (G.sess.counted | 0), boxes = Math.floor(pend / U); if (boxes <= 0) return { boxes: 0, bonus: 0 };
+  G.sess.counted = (G.sess.counted | 0) + boxes * U; const bonus = boxes * 100; G.shop.bon = bonOwn() + bonus; G.rec.bestBox = Math.max(G.rec.bestBox | 0, Math.floor((G.sess.out | 0) / U)); return { boxes, bonus };
+}
+function autoCount() {   // 数えずに新しく遊び始めるときは、前回のドル箱を自動で数える
+  try { const r = countGrant(); if (r.boxes > 0) { saveGame(); setTimeout(() => toast(`前回のドル箱 ${r.boxes}箱を計数したよ（+${r.bonus}UB）`), 400); } } catch (e) {}
+}
 function openCount() {
-  const out = G.sess.out | 0, target = out - (G.sess.counted | 0), boxes = Math.floor(out / BOX_UNIT); if (target <= 0) { toast('計数するドル箱がないよ'); return; }
+  const U = sessUnit(), pend = (G.sess.out | 0) - (G.sess.counted | 0), boxes = Math.floor(pend / U); if (boxes <= 0) { toast('計数できるドル箱がまだないよ'); return; }
   openSub(`<h2 style="font-size:22px">計数中…</h2><div style="text-align:center;margin:10px 0"><div id="cNum" style="font-size:44px;font-weight:900;color:#c0560a">0</div><div style="font-weight:800">玉</div></div><div id="cMsg" style="text-align:center;font-size:13px;font-weight:700;min-height:60px;color:#6b4a1a">ジャラジャラ……</div>`);
-  const t0 = performance.now(); let done = false;
+  const t0 = performance.now(); let done = false, total = boxes * U;
   const iv = setInterval(() => {
     const e = document.getElementById('cNum'); if (!e) { clearInterval(iv); return; }
-    const p = Math.min(1, (performance.now() - t0) / 2600); e.textContent = Math.round(target * (1 - Math.pow(1 - p, 2))).toLocaleString(); try { sfxJara(); } catch (x) {}
+    const p = Math.min(1, (performance.now() - t0) / 2600); e.textContent = Math.round(total * (1 - Math.pow(1 - p, 2))).toLocaleString(); try { sfxJara(); } catch (x) {}
     if (p >= 1 && !done) {
-      done = true; clearInterval(iv); G.sess.counted = out; G.rec.bestBox = Math.max(G.rec.bestBox | 0, boxes);
-      const bonus = boxes * 100; G.shop.bon = bonOwn() + bonus; saveGame();
-      const word = boxes >= 6 ? '大爆発！ すごい出玉！！' : boxes >= 3 ? '大勝ち！ ボンたちも大よろこび！' : boxes >= 1 ? 'ちょっと勝てたね！' : 'おつかれさま！ また打とうね';
+      done = true; clearInterval(iv); const r = countGrant(); saveGame();
+      const word = r.boxes >= 6 ? '大爆発！ すごい出玉！！' : r.boxes >= 3 ? '大勝ち！ ボンたちも大よろこび！' : r.boxes >= 1 ? 'ちょっと勝てたね！' : 'おつかれさま！ また打とうね';
       try { sfxWin(); } catch (x) {}
-      document.getElementById('cMsg').innerHTML = `<b style="font-size:16px;color:#c0560a">${word}</b><br>ドル箱 ${boxes}箱${bonus ? ` ／ 計数ボーナス +${bonus}UB` : ''}<br>持ち玉 ${totalBalls().toLocaleString()}玉 ／ 貯玉 ${(G.stock.n | 0).toLocaleString()}玉`;
+      document.getElementById('cMsg').innerHTML = `<b style="font-size:16px;color:#c0560a">${word}</b><br>ドル箱 ${r.boxes}箱${r.bonus ? ` ／ 計数ボーナス +${r.bonus}UB` : ''}<br>持ち玉 ${totalBalls().toLocaleString()}玉 ／ 貯玉 ${(G.stock.n | 0).toLocaleString()}玉`;
       const bx = document.getElementById('subBox'); const wrap = document.createElement('div'); wrap.innerHTML = '<button class="big go" id="cDep" style="margin-top:8px">持ち玉を貯玉に預ける</button><button class="big" id="cShop" style="margin-top:6px;background:linear-gradient(#ffe08a,#ffb938);border-color:#b57a12">景品カウンターへ</button>'; wrap.insertAdjacentHTML('beforeend', closeBtn); bx.appendChild(wrap); try { bindClose(); } catch (x) {}
       document.getElementById('cShop').onclick = () => openShop('goods');
       document.getElementById('cDep').onclick = () => { if (playing) { toast('遊技中は預けられないよ。メニューにもどってね'); return; } const have = totalBalls(), n = Math.min(have, STOCK_MAX - (G.stock.n | 0)); if (n <= 0) { toast('預けられないよ'); return; } settleTray(); state.have -= n; G.stock.n += n; saveGame(); updateUI(); renderMenu(); toast(`${n}玉 貯玉に預けたよ`); openShop('bank'); };
@@ -3348,8 +3375,8 @@ function openShop(tab) {
     });
   } else if (tab === 'goods') {
     sh.goods = sh.goods || {}; const gOwn = GOODS.filter(g => sh.goods[g.id]), kinds = GOODS.length, stt = GOOD_TITLES.filter(t => gOwn.length >= t[0]).pop();
-    const pend = (G.sess.out | 0) - (G.sess.counted | 0);
-    if (pend > 0) h += `<div style="${card};background:#fff3c8"><b>ドル箱 ${Math.floor((G.sess.out | 0) / BOX_UNIT)}箱（出玉 ${(G.sess.out | 0).toLocaleString()}玉）</b><div style="font-size:12px;font-weight:700;color:#6b4a1a">まだ計数していない出玉が ${pend.toLocaleString()}玉 あるよ。計数すると、箱の数に合わせてUBのおまけがもらえる。</div>${btn('count', '計数機にかける', true)}</div>`;
+    const pend = (G.sess.out | 0) - (G.sess.counted | 0), pU = sessUnit();
+    if (pend >= pU) h += `<div style="${card};background:#fff3c8"><b>数えていないドル箱 ${Math.floor(pend / pU)}箱（出玉 ${pend.toLocaleString()}玉）</b><div style="font-size:12px;font-weight:700;color:#6b4a1a">計数すると、箱の数に合わせてUBのおまけがもらえるよ（1箱＝100UB・${pU.toLocaleString()}玉で1箱）。</div>${btn('count', '計数機にかける', pend >= pU)}</div>`;
     h += `<div style="${card}"><b>景品棚</b>　${gOwn.length} / ${kinds} 種${stt ? `　<span style="color:#c0560a">【${stt[1]}】</span>` : ''}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${GOODS.map(g => { const c = sh.goods[g.id] | 0; return `<span title="${esc(g.name)}" style="width:26px;height:26px;border-radius:50%;background:${c ? g.col : '#e6e0cc'};color:${c ? '#fff' : '#b9ae8e'};font-size:12px;font-weight:900;display:inline-flex;align-items:center;justify-content:center">${g.ch}</span>`; }).join('')}</div></div>`;
     h += '<div style="font-size:12px;color:#8a6a30;margin:6px 0 2px">UBで景品と交換しよう。ゲームの中だけの景品で、お金とは関係ないよ。</div>';
     [['snack', 'お菓子（何個でも）'], ['daily', '日用品'], ['plush', 'ぬいぐるみ'], ['grand', '特大景品']].forEach(([k, nm]) => {
