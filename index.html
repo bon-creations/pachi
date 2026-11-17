@@ -3715,6 +3715,18 @@ function mediaDel(key) {
 
 /* ---------- 曲の再生（登録済みファイル優先、なければ内蔵曲） ---------- */
 const bgmAudio = { el: null, key: null };
+/* ホーム画面アプリなどで<audio>が鳴らないときの保険：WebAudioで曲を直接ならす */
+const bgmBuf = {}; let bgmWA = null;
+function bgmWAStop() { if (bgmWA) { try { bgmWA.src.stop(); } catch (e) {} try { bgmWA.g.disconnect(); } catch (e) {} bgmWA = null; } }
+function bgmWAStart(name, url, rate) {
+  const ac = AC(); if (!ac || bgm.name !== name || bgmWA) return;
+  const go = buf => {
+    if (bgm.name !== name || bgmWA) return;
+    try { const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = buf; src.loop = true; src.playbackRate.value = rate || 1; g.gain.value = snd.mute ? 0 : Math.min(1, snd.bgm); src.connect(g); g.connect(ac.destination); src.start(0); bgmWA = { src, g, name }; } catch (e) {}
+  };
+  if (bgmBuf[url]) { go(bgmBuf[url]); return; }
+  fetch(url).then(r => r.arrayBuffer()).then(ab => new Promise((ok, ng) => ac.decodeAudioData(ab, ok, ng))).then(b => { bgmBuf[url] = b; go(b); }).catch(() => {});
+}
 const bgmEls = {}; let bgmBlocked = false;
 /* 最初のタップで曲の要素を“解錠”しておく（スマホでは、タップなしで作った音は鳴らないことがある）。ブロックされていた曲は次のタップで鳴らし直す */
 function bgmUnlock() {
@@ -3740,6 +3752,7 @@ function bgmCustomUrl(name) {
 }
 function bgmStop() {
   if (bgm.timer) clearInterval(bgm.timer); bgm.timer = null; bgm.name = null;
+  bgmWAStop();
   if (bgmAudio.el) { try { bgmAudio.el.pause(); } catch (e) {} bgmAudio.el = null; }   // 要素は捨てずに止めるだけ（スマホで『自動再生ブロック』にならないよう、使い回す）
 }
 /* 通常変動曲の選択。①固定／②固定／期待度連動（変動ごとに1曲だけ）。期待度は演出の強さから判定する */
@@ -3776,7 +3789,9 @@ function bgmPlay(name) {
       if (name.indexOf('spin') === 0 && typeof supportOn === 'function' && supportOn()) { a.playbackRate = SPIN_FAST_RATE; }   // 時短中は変動が速いので、曲も速く（キーは原曲のまま）
       if (name === 'winPrism') { a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false; a.playbackRate = WIN_RATE; }
       const p = a.play(); if (p && p.catch) p.catch(() => { bgmBlocked = true; });   // ブロックされたら、次のタップで鳴らし直す
-      bgmAudio.el = a; return;
+      bgmAudio.el = a;
+      setTimeout(() => { try { if (bgm.name === name && bgmAudio.el === a && (a.paused || a.currentTime < 0.05)) bgmWAStart(name, url, a.playbackRate); } catch (e) {} }, 1500);   // 1.5秒たっても進んでいなければ、WebAudioで鳴らす
+      return;
     } catch (e) { bgmAudio.el = null; }   // 失敗したら内蔵曲にフォールバック
   }
   const key = name.indexOf('theme:') === 0 ? 't' + name.slice(6) : (name.indexOf('spin') === 0 ? 'spin' : name);
@@ -3786,7 +3801,7 @@ function bgmPlay(name) {
   const tick = () => { const i = bgm.step++ % 16; if (d.lead[i]) tone(mhz(d.lead[i]), d.ms / 1000 * 0.9, d.type, 0.09 * v, 0, 0, 'bgm'); if (i % 4 === 0) tone(mhz(d.bass[i >> 2]), d.ms / 1000 * 3.6, 'triangle', 0.16 * v, 0, 0, 'bgm'); };
   tick(); bgm.timer = setInterval(tick, d.ms);
 }
-function bgmApplyVolume() { if (bgmAudio.el) bgmAudio.el.volume = snd.mute ? 0 : Math.min(1, snd.bgm); }
+function bgmApplyVolume() { if (bgmWA) bgmWA.g.gain.value = snd.mute ? 0 : Math.min(1, snd.bgm); if (bgmAudio.el) bgmAudio.el.volume = snd.mute ? 0 : Math.min(1, snd.bgm); }
 $('vol2').addEventListener('input', bgmApplyVolume);
 $('bSnd').addEventListener('click', bgmApplyVolume);
 
