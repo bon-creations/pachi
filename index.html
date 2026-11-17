@@ -3788,12 +3788,17 @@ function bgmPlay(name) {
       a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = 1;
       if (name.indexOf('spin') === 0 && typeof supportOn === 'function' && supportOn()) { a.playbackRate = SPIN_FAST_RATE; }   // 時短中は変動が速いので、曲も速く（キーは原曲のまま）
       if (name === 'winPrism') { a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false; a.playbackRate = WIN_RATE; }
-      const p = a.play(); if (p && p.catch) p.catch(() => { bgmBlocked = true; });   // ブロックされたら、次のタップで鳴らし直す
+      const p = a.play(); if (p && p.catch) p.catch(err => { if (err && err.name === 'NotAllowedError') bgmBlocked = true; else if (bgm.name === name && !bgmWA) { bgmAudio.el = null; bgmProc(name); } });   // 曲ファイルが読めない（置き忘れなど）なら内蔵曲に
+      a.onerror = () => { if (bgm.name === name && bgmAudio.el === a && !bgmWA) { bgmAudio.el = null; bgmProc(name); } };   // ブロックされたら、次のタップで鳴らし直す
       bgmAudio.el = a;
       setTimeout(() => { try { if (bgm.name === name && bgmAudio.el === a && (a.paused || a.currentTime < 0.05)) bgmWAStart(name, url, a.playbackRate); } catch (e) {} }, 1500);   // 1.5秒たっても進んでいなければ、WebAudioで鳴らす
       return;
     } catch (e) { bgmAudio.el = null; }   // 失敗したら内蔵曲にフォールバック
   }
+  bgmProc(name);
+}
+function bgmProc(name) {   // 内蔵の曲（プログラムで鳴らす）。曲ファイルが見つからないときの代わりにもなる
+  if (bgm.timer) return;
   const key = name.indexOf('theme:') === 0 ? 't' + name.slice(6) : (name.indexOf('spin') === 0 ? 'spin' : name);
   const d = BGMS[key]; if (!d) { bgm.name = null; return; }
   bgm.step = 0;
