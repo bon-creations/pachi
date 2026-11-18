@@ -3644,19 +3644,19 @@ const BGM_DEFAULT_URL = { spin2: '', spin3: '', themes: ['', '', '', '', '', '',
 /* 通常変動曲 ①「UTOPIA SPIN…？」／②「UTOPIA SPIN!!!」／③「UTOPIA SPIN???」（フル尺を内蔵。保留がたまって変動が連続しても曲が途切れないよう、頭から最後まで流す） */
 (function () {
   const mk = b64 => { try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return URL.createObjectURL(new Blob([u], { type: 'audio/mpeg' })); } catch (e) { return ''; } };
-  BGM_DEFAULT_URL.spin2 = 'bgm/spin2.mp3';
+  BGM_DEFAULT_URL.spin2 = 'spin2.mp3';
 })();
-BGM_DEFAULT_URL.spin3 = 'bgm/spin3.mp3';   // 通常変動曲 もう1曲（UTOPIA SPIN!!! 別バージョン）
-BGM_DEFAULT_URL.star = 'bgm/star.m4a';   // 大当たり曲「UTOPIA SPIN☆☆☆」
-BGM_DEFAULT_URL.hyoe = 'bgm/hyoe.mp3';   // ひょえボンのキャラソン「ちいさな迷子」（大当たりテーマに選べる。推しボンをひょえにしているときは必ずこれ）
-BGM_DEFAULT_URL.world = 'bgm/bontify.mp3';   // Bontifyを開いている間の曲
+BGM_DEFAULT_URL.spin3 = 'spin3.mp3';   // 通常変動曲 もう1曲（UTOPIA SPIN!!! 別バージョン）
+BGM_DEFAULT_URL.star = 'star.m4a';   // 大当たり曲「UTOPIA SPIN☆☆☆」
+BGM_DEFAULT_URL.hyoe = 'hyoe.mp3';   // ひょえボンのキャラソン「ちいさな迷子」（大当たりテーマに選べる。推しボンをひょえにしているときは必ずこれ）
+BGM_DEFAULT_URL.world = 'bontify.mp3';   // Bontifyを開いている間の曲
 /* にじボンの曲「UTOPIA PRISM」（今は大当たりテーマ用。Bontifyの曲は WORLD PRISM に変更） */
 (function () {
-  BGM_DEFAULT_URL.prism = 'bgm/prism.mp3';
+  BGM_DEFAULT_URL.prism = 'prism.mp3';
 })();
 /* 共通の大当たりテーマ「BONBON FEVER!!」（全曲を内蔵） */
 (function () {
-  BGM_DEFAULT_URL.fever = 'bgm/fever.mp3';
+  BGM_DEFAULT_URL.fever = 'fever.mp3';
 })();
 /* ③「大当たり期待度連動」の調整表。期待度レベル(0〜3)ごとの「BGM②が選ばれる確率」。BGM選択は専用の乱数で行い、大当たり抽選には一切触れない */
 const SPIN_FAST_RATE = 1;   // 時短中の通常変動曲の再生速度（ピッチも上がる）
