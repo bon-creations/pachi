@@ -735,7 +735,7 @@ function playYokokuSe(id) {
 }
 function skipEffect() {
   if (lcd.btnWait) { pushDone(true); return; }
-  if (lcd.phase === 'spin') { lcd.skipped = true; lcd.t = Math.max(lcd.t, lcd.plan.M); bgmStop(); }
+  if (lcd.phase === 'spin') { lcd.skipped = true; lcd.t = Math.max(lcd.t, lcd.plan.M); if (lcd.res && lcd.res.win) bgmStop(); }
   else if (lcd.phase === 'intro') lcd.t = Math.max(lcd.t, lcd.plan.premium ? BONUS.premIntroTime : BONUS.introTime);
   else if (lcd.phase === 'result' || lcd.phase === 'finish') lcd.t = 99;
 }
@@ -761,7 +761,7 @@ function updateLCD(dt) {
     if (P.up && !lcd.skipped && t >= P.up.at) once('reachUp', () => { P.reach = P.up.to; P.R = t; dexMark('rc', P.reach); sfxReachUp(); toast('リーチ発展！！'); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); });
     if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true)) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); });
     if (lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2]) {
-      if (lcd.res.win || state.queue.length === 0 || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // 連続で回転するとき（ハズレで次の保留がある）は、曲を止めずに続ける
+      if (lcd.res.win || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // ハズレなら曲は止めずに流し続ける（海物語のように、変動のたびに途切れない）
       P.sym.forEach(x => { G.dex.symSeen[x] = 1; });
       if (lcd.res.win) { state.wins++; onWin(lcd.res); dexMark('sp', P.premium ? 'premium' : 'win'); if (P.premium) G.rec.premium++; if (lcd.res.symIdx === SEVEN) dexMark('sp', 'seven'); lcd.phase = 'intro'; lcd.t = 0; lcd.fired = {}; }
       else { onLose(); sfxLose(); lcd.phase = 'result'; lcd.t = 0; }
@@ -1343,6 +1343,7 @@ function hallPA() {   // 店内放送の「ピンポンパンポン」
   [[880, 0], [698, 0.32], [784, 0.64], [587, 0.96]].forEach(([f, d]) => { hallVoice('sine', f, t0 + d, 0.55, 0.09, lp); hallVoice('sine', f * 2, t0 + d, 0.4, 0.025, lp); });
 }
 function hallUpdate(nowMs) {
+  return;   // ホールの音は廃止
   if (snd.hall > 0 && !hall.node && snd.ac) hallStart();
   if (!hall.out) return; const ac = AC(); if (!ac) return;
   const quiet = (typeof winActive === 'function' && winActive()) ? 0.45 : 1, off = snd.mute || custom.hall === 'off';
@@ -2985,7 +2986,7 @@ const HOWTO = [
   { t: '⑨ 図柄はボンちゃんたち', bon: [1, 2], say: 'みんな、わたしたちを応援してね〜！', b: ['図柄は、7人の<b>ボンちゃん</b>だよ。おこボン・にこボン・ひょえボン・もぐボン・ねむボン・てれボン、そして虹色の<b>にじボン</b>。', '大当たりするとその子が大活躍して、<b>図鑑</b>に登録されていくよ。メニューの「図鑑」で、集めた記録を見られるよ。', '図柄によって、大当たりのあとに<b>確変</b>になるか<b>時短</b>になるかが変わるよ。'] },
   { t: '⑩ 景品交換所と計数', bon: [3, 1], say: '玉をためて、お菓子もぬいぐるみも、ぜ〜んぶほしいな〜！', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>景品</b>タブでは、お菓子・日用品・ぬいぐるみ・特大景品の全23種を、UBで交換できるよ。集めた数で称号も付くんだ。ぜんぶ<b>ゲームの中だけ</b>の景品で、お金とは関係ないから安心してね。', '大当たりで増えたドル箱は、景品カウンターの<b>計数機</b>で数えよう。ジャラジャラ数えると、箱の数に合わせて<b>UBのおまけ</b>がもらえるよ。', '<b>貯玉</b>タブでは、持ち玉を預けたり、ひきだしたりできるよ。持ち玉で打った割合は<b>持ち玉比率</b>として記録されるよ。', '<b>ガチャ</b>では<b>カスタムパーツ</b>（保留・予告・玉・盤面・効果音など）が出るよ。<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
   { t: '⑪ 便利ツール', bon: [0, 3], say: 'まあ、使えるものは使いなさいよ。アタシは自力で入れるけどね！', b: ['<b>景品交換所の「ツール」</b>では、UBで便利な道具を買えるよ。いちど買えばずっと使えるんだ。', '<b>打ちやすくなる</b>：<b>倍速</b>（回転がはやくなる）、<b>玉の軌道ガイド</b>（玉の通り道を予想して線で見せる）、<b>自動ベスト角度</b>（いちばん入りやすい角度を探して合わせる）、<b>ヘソ入賞ナビ</b>（いまの角度の入りやすさを％で表示）、<b>釘ヨミ鑑定</b>（台の入りやすさをS〜Dで鑑定）、<b>右打ち自動きりかえ</b>、<b>オート保留消化</b>（保留がいっぱいなら打つのをお休み）。', '<b>わかりやすくなる</b>：<b>保留レーダー</b>（色が変わった当たり保留に「当」）、<b>当たり前兆アラート</b>（予告・リーチが出そうだと期待度をお知らせ）、<b>回転率メーター</b>、<b>収支メーター</b>、<b>連チャンカウンター</b>。', '<b>楽しくなる</b>：<b>玉の残像トレイル</b>（玉が光の線を残す）。', '買ったツールは、<b>カスタムの「ツール」タブ</b>で、いつでもON・OFFできるよ。'] },
-  { t: '⑫ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'カスタムは「<b>見た目・保留・予告・音・ツール・BGM</b>」の6つ。台の枠（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）や、図柄の見せ方、BGMなどを選べるよ。', '<b>ガチャのパーツ</b>で、<b>玉の飾り</b>（ひかり・キラキラ・ハート・にじ・雪・ほのお）、<b>盤面のもよう</b>（水玉・星空・なみ・チェック・にじ・ハニカム）、<b>効果音セット</b>（チャイム・ベル・木の音・8bit）が増えていくよ。', '<b>音</b>タブでは、ホールのざわめきやリーチの鼓動のON・OFFもできるよ。音の大きさは、設定の「音量」で変えられるよ。'] },
+  { t: '⑫ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'カスタムは「<b>見た目・保留・予告・音・ツール・BGM</b>」の6つ。台の枠（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）や、図柄の見せ方、BGMなどを選べるよ。', '<b>ガチャのパーツ</b>で、<b>玉の飾り</b>（ひかり・キラキラ・ハート・にじ・雪・ほのお）、<b>盤面のもよう</b>（水玉・星空・なみ・チェック・にじ・ハニカム）、<b>効果音セット</b>（チャイム・ベル・木の音・8bit）が増えていくよ。', '<b>音</b>タブでは、リーチの鼓動のON・OFFもできるよ。音の大きさは、設定の「音量」で変えられるよ。'] },
   { t: '⑬ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、図鑑で出会った<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
   { t: '⑭ セーブと、困ったとき', bon: [3, 3], say: 'こまったときは、ここを見てね〜！ うち、ごはんつくって待ってるよ〜', b: ['遊んだ記録は、このブラウザの中に<b>自動で保存</b>されるよ。ブラウザのデータを消したり、機種を変えたりすると、消えてしまうんだ。', '大事なデータは、設定の<b>「データのバックアップ」</b>でコードを保存しておこう。別の端末では、そのコードを読み込めば続きから遊べるよ。', '表示がおかしいときや、新しい版に変えたいときは、画面右上の<b>「更新」</b>ボタンを押してね。セーブは消えないよ。', '光の演出が苦手なときは、設定で<b>「光の演出：弱め」</b>にできるよ。長く遊びすぎないよう、ときどき休けいしてね。'] },
 ];
@@ -3259,7 +3260,6 @@ function openSettings() {
   h += row('音', `<div class="bgmsel"><button id="stSnd" class="${snd.mute ? '' : 'on'}">音 ${snd.mute ? 'OFF' : 'ON'}</button><button id="stCalm" class="${calm ? 'on' : ''}">光の演出：${calm ? '弱め' : 'ふつう'}</button></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:8px;color:#3a2a10">演出の音<input type="range" id="stSe" min="0" max="100" value="${Math.round(snd.se * 100)}" style="flex:1"></label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">玉の音<input type="range" id="stBall" min="0" max="100" value="${Math.round(snd.ball * 100)}" style="flex:1"></label>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">ホールの音<input type="range" id="stHall" min="0" max="100" value="${Math.round(snd.hall * 100)}" style="flex:1"></label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;margin-top:6px;color:#3a2a10">BGM<input type="range" id="stBgm" min="0" max="100" value="${Math.round(snd.bgm * 100)}" style="flex:1"></label>`);
   if (isPlay) h += row('台の種類（大当たりの確率・ラウンド）', `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr)">${[10, 99, 199, 319, 399].filter(p => p !== 10 || debugMode).map(p => `<button data-prob="${p}" class="${LOTTERY.prob === p ? 'on' : ''}">1/${p}<small>${MACH[p].name}・${MACH[p].rounds}R</small></button>`).join('')}</div><div style="font-size:11px;color:#8a6a30;margin-top:4px">変えると、次の入賞から反映されるよ。</div>`);
   else h += row('台の確率（大当たり）', `<div style="font-size:12px;color:#6b4a1a">いまは 1/${LOTTERY.prob}。遊んでいる最中に、画面の「🎰 確率」から変えられるよ。</div>`);
@@ -3305,7 +3305,7 @@ function openSettings() {
   $('stSnd').onclick = () => { $('bSnd').click(); again(); };
   $('stCalm').onclick = () => { setCalm(!calm); toast(calm ? '光の演出を弱めたよ' : '光の演出をふつうにしたよ'); again(); };
   const proxy = (id, hid) => { $(id).addEventListener('input', e => { $(hid).value = e.target.value; $(hid).dispatchEvent(new Event('input')); }); };
-  proxy('stSe', 'vol'); proxy('stBgm', 'vol2'); $('stBall').addEventListener('input', e => { snd.ball = e.target.value / 100; saveVol(); }); $('stHall').addEventListener('input', e => { snd.hall = e.target.value / 100; saveVol(); hallUpdate(performance.now()); });
+  proxy('stSe', 'vol'); proxy('stBgm', 'vol2'); $('stBall').addEventListener('input', e => { snd.ball = e.target.value / 100; saveVol(); });
   box.querySelectorAll('[data-prob]').forEach(b => b.onclick = () => { $('prob').value = b.dataset.prob; $('prob').dispatchEvent(new Event('change')); again(); });
   $('stHow').onclick = () => openHowTo(0); $('stData').onclick = openData; $('stCust').onclick = () => openCustom('hold'); $('stShare').onclick = openShare;
 }
@@ -3927,8 +3927,8 @@ function openCustom(tab) {
     h += '<div class="bgmh">効果音のセット（音の質感だけ変わるよ）</div><div class="bgmsel" style="grid-template-columns:repeat(1,1fr)">';
     [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['bell', 'ベル音セット', 'bell'], ['wood', '木の音セット', 'wood'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : '押すと試し聴き'}</small></button>`; });
     h += '</div><div class="bgmh">雰囲気の音</div><div class="bgmsel">';
-    h += `<button data-tg="hall" class="${custom.hall !== 'off' ? 'on' : ''}">ホールのざわめき<small>${custom.hall !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
-    h += '</div><div style="font-size:11px;color:#8a6a30;margin-top:6px;line-height:1.5">音量そのものは、設定の「音量」で、効果音・玉・ホールごとに変えられるよ。</div>';
+    h += `<button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
+    h += '</div><div style="font-size:11px;color:#8a6a30;margin-top:6px;line-height:1.5">音量そのものは、設定の「音量」で、効果音・玉ごとに変えられるよ。</div>';
   } else if (tab === 'tool') {
     const own = TOOLS.filter(t => ownTool(t.id));
     h += '<div class="bgmh">持っているツールのON / OFF（買ったツールは消えないよ）</div>';
