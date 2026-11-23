@@ -1283,6 +1283,7 @@ function tone(f0, dur, type, gain, f1, delay, ch) {
   o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
 }
 /* ホールの環境音：ざわざわした店内の音と、遠くの台の当たり音・ジャラジャラ（「ホールの音」のつまみで調整。0で消える） */
+let idleBgmT = 0;
 const hall = { node: null, g: null, out: null, ev: null, next: 0, nextPA: 0, tick: 0 };
 function hallStart() {
   const ac = AC(); if (!ac || hall.node) return; const sr = ac.sampleRate;
@@ -2529,6 +2530,10 @@ function loadGame() {
     for (const k of ['have', 'shimo', 'box', 'shot', 'hit', 'out', 'spins', 'wins', 'plays', 'maxHave']) if (typeof st[k] === 'number') state[k] = Math.max(0, st[k] | 0);
   } else {
     save = { coins: 1, nextAt: Date.now() + COIN.recoverMs, rate: 4 }; // 初回プレイ：1枚付与
+  }
+  if (G && G.shop && G.shop.tools && G.shop.tools.fortune) {   // 廃止した「今日の運勢」を買っていた人には購入額を返す
+    delete G.shop.tools.fortune; G.shop.bon = (G.shop.bon | 0) + 3000;
+    setTimeout(() => { try { toast('「今日の運勢」は廃止したので、3000UBを返したよ'); } catch (e) {} }, 2500);
   }
   tickCoins();
 }
@@ -4268,6 +4273,8 @@ function frame(now) {
   if (dt > 1 / 20) dt = 1 / 20;
   dt *= simMul;
   if ((hall.tick = (hall.tick + 1) % 20) === 0) { try { hallUpdate(now); updTools(); } catch (e) {} }
+  /* 待機中（玉を打たず、変動も大当たりもない）が30秒続いたら、通常変動曲を止める */
+  if (lcd.phase === 'idle' && !(firing || autoFire) && state.queue.length === 0) { idleBgmT = (idleBgmT || 0) + dt; if (idleBgmT > 30 && (bgm.name || '').indexOf('spin') === 0) { bgmStop(); idleBgmT = 0; } } else idleBgmT = 0;
   if (playing && (firing || autoFire)) {
     fireTimer += dt;
     while (fireTimer >= RATES[save.rate].interval) { fireTimer -= RATES[save.rate].interval; if (!fireBall()) { fireTimer = 0; break; } }
