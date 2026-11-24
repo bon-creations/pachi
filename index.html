@@ -4136,8 +4136,8 @@ function bgmUnlock() {
   ['spin2', 'spin3', 'fever', 'prism', 'winPrism', 'winStar', 'winBon'].concat(typeof bgmCfg.sel === 'number' && bgmCfg.sel >= 0 && bgmCfg.sel <= 6 ? ['theme:' + bgmCfg.sel] : []).forEach(n => {
     const u = bgmCustomUrl(n); if (!u) return;
     let a = bgmEls[n]; if (!a || a.dataset.u !== u) { a = new Audio(u); a.dataset.u = u; a.preload = 'auto'; a.loop = true; bgmEls[n] = a; }
-    if (a === bgmAudio.el || !a.paused) return;
-    try { a.muted = true; const p = a.play(); if (p && p.then) p.then(() => { if (a !== bgmAudio.el) { a.pause(); a.currentTime = 0; } a.muted = false; }).catch(() => {}); } catch (e) {}
+    if (a === bgmAudio.el || !a.paused || a._ul || bgmWA || (bgmAudio.el && !bgmAudio.el.paused)) return;   // 解錠は1曲につき1回だけ。曲が流れている間は他の要素にさわらない（タップのたびに音が途切れる・急に鳴るのを防ぐ）
+    try { a._ul = 1; a.muted = true; const v0 = a.volume; a.volume = 0; const p = a.play(); if (p && p.then) p.then(() => { if (a !== bgmAudio.el) { a.pause(); try { a.currentTime = 0; } catch (e) {} a.muted = false; a.volume = v0; } }).catch(() => { a._ul = 0; a.muted = false; a.volume = v0; }); } catch (e) { a._ul = 0; }
   });
   if (bgmBlocked && bgmAudio.el && bgmAudio.el.paused) { bgmBlocked = false; try { bgmAudio.el.play().catch(() => {}); } catch (e) {} }
 }
