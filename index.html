@@ -486,7 +486,7 @@ const ETH_TONE = {
 function oshiTone() {
   try {
     const fb = frameBon(); if (fb >= 0) { const lc = PARTS[20 + fb], bd = PARTS[27 + fb]; if (lc && bd) return { lcd: lc.col, board: bd.col, ball: ['#ffffff', bd.col[0], bd.col[1], bd.col[2]], nail: ['#ffffff', bd.col[0], bd.col[1]] }; }
-    if (ETH_TONE[custom.frame]) { const t = ETH_TONE[custom.frame]; return { lcd: t.lcd, board: t.board, ball: ['#ffffff', t.board[0], t.board[1], t.board[2]], nail: ['#ffffff', t.board[0], t.board[1]] }; }
+    if (ETH_TONE[frameResolved()]) { const t = ETH_TONE[frameResolved()]; return { lcd: t.lcd, board: t.board, ball: ['#ffffff', t.board[0], t.board[1], t.board[2]], nail: ['#ffffff', t.board[0], t.board[1]] }; }
     if (bgmCfg.sel === 'auto' && !(Array.isArray(G.hist) && G.hist.length)) return null;
     const bi = oshiBon(), lc = PARTS[20 + bi], bd = PARTS[27 + bi]; if (!lc || !bd) return null;
     return { lcd: lc.col, board: bd.col, ball: ['#ffffff', bd.col[0], bd.col[1], bd.col[2]], nail: ['#ffffff', bd.col[0], bd.col[1]] };
@@ -508,7 +508,7 @@ function gachaRoll(kind) {
 const partOwned = key => Object.keys(PARTS).some(id => PARTS[id].key === key && (G.gacha.cards[id] || 0) > 0);
 let custom = { deco: 'on', frame: 'asia', hold: 'dot', fx: 'none', ykChar: 'auto', yk: {}, lcd: 'none', board: 'none', sym: 'normal', ball: 'silver', nail: 'gold', ui: 'gold', reach: 'none', art: 'new', oshiDeco: 'on', ethcol: 'off', bfx: 'none', bg: 'none', se: 'normal', hall: 'on', heart: 'on', voice: 'on', sub: 'on', toolsOff: {}, lastTab: 'look' };
 try { const sv = JSON.parse(localStorage.getItem('bonutopia_custom') || 'null'); if (sv && typeof sv === 'object') custom = Object.assign(custom, sv); } catch (e) {}
-if (!['wa', 'india', 'mexico', 'celtic', 'andes', 'asia', 'africa', 'mideast', 'bon0', 'bon1', 'bon2', 'bon3', 'bon4', 'bon5', 'bon6'].includes(custom.frame)) custom.frame = 'asia';   // 以前の枠（金・リボンなど）は、アジア風に切り替え
+if (!['wa', 'india', 'mexico', 'celtic', 'andes', 'asia', 'africa', 'mideast', 'bon0', 'bon1', 'bon2', 'bon3', 'bon4', 'bon5', 'bon6', 'oshi', 'last'].includes(custom.frame)) custom.frame = 'asia';   // 以前の枠（金・リボンなど）は、アジア風に切り替え
 const BON_C = [['おこボン', 'oko', '#e0506a', '255,60,70', '#fff0f0'], ['にこボン', 'niko', '#f2b632', '255,200,60', '#fff8e0'], ['ひょえボン', 'hyoe', '#3f8ae0', '60,120,255', '#eef6ff'], ['もぐボン', 'mogu', '#3fa564', '60,200,110', '#effbe8'], ['ねむボン', 'nemu', '#7a5ad0', '170,80,255', '#f3eeff'], ['てれボン', 'tere', '#e0689a', '255,120,170', '#fff0f6']];
 const mixc = (hex, t) => { const n = parseInt(hex.slice(1), 16), c = k => Math.round(((n >> k) & 255) * (1 - t) + 255 * t); return '#' + [16, 8, 0].map(k => c(k).toString(16).padStart(2, '0')).join(''); };
 const dk = (hex, t) => { const n = parseInt(hex.slice(1), 16), c = k => Math.round(((n >> k) & 255) * t); return '#' + [16, 8, 0].map(k => c(k).toString(16).padStart(2, '0')).join(''); };
@@ -2060,7 +2060,7 @@ function drawBonFrame(c) {
   });
   c.restore();
 }
-const FRAME_STYLE = { wa: '和風（日本）', andes: 'アンデス風', asia: 'アジア風', africa: 'アフリカ風', mideast: '中東風', india: 'インド風', mexico: 'メキシコ風', celtic: 'ケルト（アイルランド）風', bon0: 'おこボンカラー', bon1: 'にこボンカラー', bon2: 'ひょえボンカラー', bon3: 'もぐボンカラー', bon4: 'ねむボンカラー', bon5: 'てれボンカラー', bon6: 'にじボンカラー' };
+const FRAME_STYLE = { wa: '和風（日本）', andes: 'アンデス風', asia: 'アジア風', africa: 'アフリカ風', mideast: '中東風', india: 'インド風', mexico: 'メキシコ風', celtic: 'ケルト（アイルランド）風', oshi: '推しボンに合わせる', last: '前に当たったボンに合わせる', bon0: 'おこボンカラー', bon1: 'にこボンカラー', bon2: 'ひょえボンカラー', bon3: 'もぐボンカラー', bon4: 'ねむボンカラー', bon5: 'てれボンカラー', bon6: 'にじボンカラー' };
 function framePts() {
   const R7 = RC + 7, cx1 = FRAME + RC, cx2 = W - FRAME - RC, cy = FRAME + RC, pts = [];
   const seg = (x0, y0, x1, y1, step) => { const L = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.round(L / step)); for (let i = 0; i < n; i++) { const t = i / n; pts.push({ x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, a: Math.atan2(y1 - y0, x1 - x0) }); } };
@@ -2072,8 +2072,19 @@ function framePts() {
 const FR_COL = ['#e0506a', '#f2b632', '#3f8ae0', '#3fa564', '#7a5ad0', '#e0689a', '#fffaf0'];
 /* 台の枠＝民族風の柄5種 × 推しボンの色7色。柄は推しボンごとのおまかせか、自分で固定。色は常に推しボンの色 */
 /* 台の枠＝民族風の柄5種。推しボンとは別に、自分で選ぶ */
-const frameBon = () => { const m = /^bon([0-6])$/.exec(custom.frame || ''); return m ? +m[1] : -1; };   // ボンカラーの枠なら、そのボンの番号
-function curFrame() { return frameBon() >= 0 || (FRAME_ETHNIC[custom.frame] || custom.frame === 'wa') ? custom.frame : 'asia'; }
+function lastBonWin() {   // 前に当たったボン（ボンの図柄で当たった直近の1回）。まだなら -1
+  const h = Array.isArray(G.hist) ? G.hist : [];
+  for (let i = h.length - 1; i >= 0; i--) { const d = SYM_DEFS[h[i].sym]; if (d && d.kind === 'bon') return d.bon; }
+  return -1;
+}
+function frameResolved() {   // 'oshi'（推しボンに合わせる）・'last'（前に当たったボンに合わせる）を、ボンカラーの枠に置きかえる
+  const f = custom.frame;
+  if (f === 'oshi') { const b = typeof bgmCfg.sel === 'number' ? bgmCfg.sel : lastBonWin(); return b >= 0 ? 'bon' + b : 'asia'; }
+  if (f === 'last') { const b = lastBonWin(); return b >= 0 ? 'bon' + b : 'asia'; }
+  return f;
+}
+const frameBon = () => { const m = /^bon([0-6])$/.exec(frameResolved() || ''); return m ? +m[1] : -1; };   // ボンカラーの枠なら、そのボンの番号
+function curFrame() { const f = frameResolved(); return frameBon() >= 0 || (FRAME_ETHNIC[f] || f === 'wa') ? f : 'asia'; }
 function drawFrameStyle(c) {
   const st = curFrame();
   if (/^bon[0-6]$/.test(st)) return drawBonColorFrame(c, +st.slice(3));
@@ -2656,6 +2667,13 @@ const dailyAllOk = () => DAILY.every(d => G.daily.claimed[d.id]);
 const DAILY_ALL_R = 3;
 function dexMark(kind, id) { G.dex[kind][id] = (G.dex[kind][id] || 0) + 1; }
 function bonSeen(i) { if (i >= 0 && i < 7) G.dex.bon[i] = (G.dex.bon[i] || 0) + 1; }
+function grantWinPart() {   // 大当たりのたびに、まだ持っていないカスタムパーツを1つもらえる（ガチャは廃止）
+  const ok = GACHA_KIND.parts[2], ids = GACHA_W.map((w, i) => i).filter(i => GACHA_W[i] > 0 && ok(i) && PARTS[i] && !(G.gacha.cards[i] > 0));
+  if (!ids.length) return -1;
+  let r = Math.random() * ids.reduce((a, i) => a + GACHA_W[i], 0), pick = ids[ids.length - 1];
+  for (const i of ids) { if ((r -= GACHA_W[i]) < 0) { pick = i; break; } }
+  G.gacha.cards[pick] = 1; G.rec.gacha++; return pick;
+}
 function onWin(res) {   // 当たりが確定して液晶が揃った時点の記録
   G.life.wins++; G.yuu = 0;
   bonus.sym = res.symIdx;
@@ -2663,6 +2681,10 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
   if (G.chain > G.rec.bestChain) G.rec.bestChain = G.chain;
   if (!Array.isArray(G.hist)) G.hist = [];
   G.hist.push({ sp: Math.max(0, G.life.spins - (G.lastWinSp || 0)), sym: res.symIdx, ch: G.chain, g: 0, k: '' }); G.lastWinSp = G.life.spins; if (G.hist.length > 30) G.hist.shift();
+  try {
+    const gp = grantWinPart(); if (gp >= 0) setTimeout(() => { try { toast('🎁 新しいパーツ「' + PARTS[gp].name + '」をゲット！（カスタムで使えるよ）'); } catch (e) {} }, 2600);
+    if ((custom.frame === 'last' || custom.frame === 'oshi') && typeof renderStatic === 'function') renderStatic();
+  } catch (e) {}
   MODE.k = 'bonus'; MODE.left = 0;
   dexMark('sym', res.symIdx); if (res.symIdx >= 7 && res.symIdx <= 13) bonSeen(res.symIdx - 7);
   if (res.symIdx === SEVEN) G.rec.seven++;
@@ -2766,10 +2788,10 @@ function renderMenu() {
     if (save.coins <= 0 && (G.stock.n | 0) < 100) h += '<div class="free" style="color:#ffb0b0">ボンコインがないよ。回復を待ってね。</div>';
   }
   const dot = n => n > 0 ? `<span class="dot">${n > 9 ? '9+' : n}</span>` : '';
-  h += `<div class="subrow"><button id="mDex">📖 図鑑</button><button id="mMis">🎯 ミッション${dot(claimCount())}</button><button id="mGacha">🎁 応援ガチャ${gachaReady() ? '<span class="dot">!</span>' : ''}</button><button id="mQuiz">🧠 ボンクイズ${dot(quizLeft())}</button></div>`;
+  h += `<div class="subrow"><button id="mDex">📖 図鑑</button><button id="mMis">🎯 ミッション${dot(claimCount())}</button><button id="mQuiz">🧠 ボンクイズ${dot(quizLeft())}</button></div>`;
   $('menuBtns').innerHTML = h;
   { const sub0 = $('menuBtns').querySelector('.subrow'); if (sub0) sub0.insertAdjacentHTML('beforebegin', `<button class="big" id="mShop" style="background:linear-gradient(#ffe08a,#ffb938);border-color:#b57a12">🎁 玉の景品交換所<small>持ち玉 ${totalBalls()} 玉 ／ UB（ユートピアボン）に両替してガチャ・コイン上限・応援</small></button>`); }   // 景品交換所は「続きから」のすぐ下
-  $('menuBtns').insertAdjacentHTML('beforeend', `<button class="big" id="mBontify" style="position:relative"><span style="display:inline-block">${bfLogo(26)}</span><small>にじボンの曲とつぶやき（${bfCount()} / ${BF_TRACKS.length}曲 解放）</small>${bfNew() ? '<span class="dot" style="position:absolute;right:8px;top:-5px;background:#ff3d6e;color:#fff;border-radius:9px;font-size:10px;padding:0 6px">NEW</span>' : ''}</button><button class="big" id="mBgm">🎨 カスタム<small>保留・予告・BGM</small></button>`); $('mBontify').onclick = openBontify; $('mShop').onclick = () => openShop('gacha'); $('mBgm').onclick = () => openCustom(); $('mDex').onclick = () => openDex(); $('mMis').onclick = () => openMissions(); $('mGacha').onclick = openGacha; $('mQuiz').onclick = openQuiz;
+  $('menuBtns').insertAdjacentHTML('beforeend', `<button class="big" id="mBontify" style="position:relative"><span style="display:inline-block">${bfLogo(26)}</span><small>にじボンの曲とつぶやき（${bfCount()} / ${BF_TRACKS.length}曲 解放）</small>${bfNew() ? '<span class="dot" style="position:absolute;right:8px;top:-5px;background:#ff3d6e;color:#fff;border-radius:9px;font-size:10px;padding:0 6px">NEW</span>' : ''}</button><button class="big" id="mBgm">🎨 カスタム<small>保留・予告・BGM</small></button>`); $('mBontify').onclick = openBontify; $('mShop').onclick = () => openShop('goods'); $('mBgm').onclick = () => openCustom(); $('mDex').onclick = () => openDex(); $('mMis').onclick = () => openMissions(); $('mQuiz').onclick = openQuiz;
   const sr = $('menuBtns').querySelector('.subrow'); if (sr) { sr.insertAdjacentHTML('afterend', '<button class="big" id="mHow" style="background:linear-gradient(#bfe7ff,#7cc4f5);border-color:#3b8bc4;color:#103a5c">📘 ボンでもわかるパチンコ<small>遊び方・用語を、やさしく解説</small></button>'); const hb = $('mHow'); if (hb) hb.addEventListener('click', () => openHowTo(0));
     $('mHow').insertAdjacentHTML('afterend', `<div class="subrow"><button id="mData">📊 データ</button><button id="mShare">📸 シェア</button><button id="mSet">⚙ 設定</button></div>`);
     $('mData').addEventListener('click', openData); $('mShare').addEventListener('click', openShare); $('mSet').addEventListener('click', () => openSettings());
@@ -3167,9 +3189,9 @@ const HOWTO = [
   { t: '⑦ 保留の色で、先読み！', bon: [2, 0], say: 'あわわ……！ いろが変わったよ！？', b: ['保留のランプは、<b>色</b>で当たりそうな度合いを教えてくれるよ。<b>青</b>はふつう、<b>緑</b>は少しチャンス、<b>赤</b>はかなりアツい！ そして<b>虹色</b>が出たら……覚悟してね。', '回している最中に<b>予告</b>（ボンちゃんが横切る、画面が光る、など）が出ると、期待が高まるよ。ただし、予告が出ても外れることはあるし、出なくても当たることもあるんだ。', '保留の色も予告も、あくまで<b>お楽しみの演出</b>。当たりやすさを変えるものではないよ。'] },
   { t: '⑧ リーチ！', bon: [0, 1], say: 'リーチ！ ここからが本番でしょ！ アタシの勝負、見てなさい！', b: ['3つの図柄のうち2つがそろうと<b>リーチ</b>！ 最後の1つがそろえば大当たりだよ。', 'リーチには、ボンが1人で出てくるものや、みんなで協力するもの、<b>にじボン</b>が出てくる特別なものなどがあるよ。特別なほど、アツい！', '外れたときも落ち込まないで。リーチが見られるだけでも、ちょっとお得だよ。', '見たくない演出は、画面の<b>演出スキップ</b>ボタンで飛ばせるよ。'] },
   { t: '⑨ 図柄はボンちゃんたち', bon: [1, 2], say: 'みんな、わたしたちを応援してね〜！', b: ['図柄は、7人の<b>ボンちゃん</b>だよ。おこボン・にこボン・ひょえボン・もぐボン・ねむボン・てれボン、そして虹色の<b>にじボン</b>。', '大当たりするとその子が大活躍して、<b>図鑑</b>に登録されていくよ。メニューの「図鑑」で、集めた記録を見られるよ。', '図柄によって、大当たりのあとに<b>確変</b>になるか<b>時短</b>になるかが変わるよ。'] },
-  { t: '⑩ 景品交換所と計数', bon: [3, 1], say: '玉をためて、お菓子もぬいぐるみも、ぜ〜んぶほしいな〜！', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>景品</b>タブでは、お菓子・日用品・ぬいぐるみ・特大景品の全23種を、UBで交換できるよ。集めた数で称号も付くんだ。ぜんぶ<b>ゲームの中だけ</b>の景品で、お金とは関係ないから安心してね。', '大当たりで増えたドル箱は、景品カウンターの<b>計数機</b>で数えよう。ジャラジャラ数えると、箱の数に合わせて<b>UBのおまけ</b>がもらえるよ。', '<b>貯玉</b>タブでは、持ち玉を預けたり、ひきだしたりできるよ。持ち玉で打った割合は<b>持ち玉比率</b>として記録されるよ。', '<b>ガチャ</b>では<b>カスタムパーツ</b>（保留・予告・玉・盤面・効果音など）が出るよ。<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
+  { t: '⑩ 景品交換所と計数', bon: [3, 1], say: '玉をためて、お菓子もぬいぐるみも、ぜ〜んぶほしいな〜！', b: ['<b>玉の景品交換所</b>（メニューの「続きから」のすぐ下）では、たまった玉を<b>「UB（ユートピアボン）」</b>に両替して使うよ。1円パチンコは1玉＝1UB、4円パチンコは1玉＝4UBだよ。', '<b>景品</b>タブでは、お菓子・日用品・ぬいぐるみ・特大景品の全23種を、UBで交換できるよ。集めた数で称号も付くんだ。ぜんぶ<b>ゲームの中だけ</b>の景品で、お金とは関係ないから安心してね。', '大当たりで増えたドル箱は、景品カウンターの<b>計数機</b>で数えよう。ジャラジャラ数えると、箱の数に合わせて<b>UBのおまけ</b>がもらえるよ。', '<b>貯玉</b>タブでは、持ち玉を預けたり、ひきだしたりできるよ。持ち玉で打った割合は<b>持ち玉比率</b>として記録されるよ。', '<b>大当たり</b>するたびに、まだ持っていない<b>カスタムパーツ</b>（保留・予告・玉・盤面・効果音など）が1つもらえるよ。<b>コイン</b>は上限を増やせて、<b>応援</b>は好きなボンにUBを贈れるよ。毎日もらえる<b>応援ガチャ</b>もあるから、メニューでチェックしてね。', '玉は現金には替えられないから、安心して楽しんでね。'] },
   { t: '⑪ 便利ツール', bon: [0, 3], say: 'まあ、使えるものは使いなさいよ。アタシは自力で入れるけどね！', b: ['<b>景品交換所の「ツール」</b>では、UBで便利な道具を買えるよ。いちど買えばずっと使えるんだ。', '<b>打ちやすくなる</b>：<b>倍速</b>（回転がはやくなる）、<b>玉の軌道ガイド</b>（玉の通り道を予想して線で見せる）、<b>自動ベスト角度</b>（いちばん入りやすい角度を探して合わせる）、<b>ヘソ入賞ナビ</b>（いまの角度の入りやすさを％で表示）、<b>釘ヨミ鑑定</b>（台の入りやすさをS〜Dで鑑定）、<b>右打ち自動きりかえ</b>、<b>オート保留消化</b>（保留がいっぱいなら打つのをお休み）。', '<b>わかりやすくなる</b>：<b>保留レーダー</b>（色が変わった当たり保留に「当」）、<b>当たり前兆アラート</b>（予告・リーチが出そうだと期待度をお知らせ）、<b>回転率メーター</b>、<b>収支メーター</b>、<b>連チャンカウンター</b>。', '<b>楽しくなる</b>：<b>玉の残像トレイル</b>（玉が光の線を残す）。', '買ったツールは、<b>カスタムの「ツール」タブ</b>で、いつでもON・OFFできるよ。'] },
-  { t: '⑫ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'カスタムは「<b>見た目・保留・予告・音・ツール・BGM</b>」の6つ。台の枠（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）や、図柄の見せ方、BGMなどを選べるよ。', '<b>ガチャのパーツ</b>で、<b>玉の飾り</b>（ひかり・キラキラ・ハート・にじ・雪・ほのお）、<b>盤面のもよう</b>（水玉・星空・なみ・チェック・にじ・ハニカム）、<b>効果音セット</b>（チャイム・ベル・木の音・8bit）が増えていくよ。', '<b>音</b>タブでは、リーチの鼓動のON・OFFもできるよ。音の大きさは、設定の「音量」で変えられるよ。'] },
+  { t: '⑫ 推しボンとカスタム', bon: [5, 0], say: 'わ、私を……推しボンにして、くれますか……？', b: ['メニューの<b>カスタム</b>で、<b>推しボン</b>を選べるよ。選んだ子の色に、<b>液晶・盤面・玉・釘</b>が自動で変わるんだ。台の横と液晶の隅にも、その子の立ち絵が出るよ。', '「おまかせ」にすると、最後に当たった図柄の子が推しボンになるよ。', 'カスタムは「<b>見た目・保留・予告・音・ツール・BGM</b>」の6つ。台の枠（北欧風・アンデス風・アジア風・アフリカ風・中東風もあるよ）や、図柄の見せ方、BGMなどを選べるよ。', '<b>大当たりでもらえるパーツ</b>で、<b>玉の飾り</b>（ひかり・キラキラ・ハート・にじ・雪・ほのお）、<b>盤面のもよう</b>（水玉・星空・なみ・チェック・にじ・ハニカム）、<b>効果音セット</b>（チャイム・ベル・木の音・8bit）が増えていくよ。', '<b>音</b>タブでは、リーチの鼓動のON・OFFもできるよ。音の大きさは、設定の「音量」で変えられるよ。'] },
   { t: '⑬ データとシェア', bon: [4, 2], say: 'ふわぁ……きろく、ちゃんと見てね……きみ', b: ['<b>データ</b>では、回転数・大当たり回数・最高連チャン・出玉などの記録や、回転数のグラフが見られるよ。', '<b>シェア</b>では、結果を画像にして保存したり、Twitter（X）に投稿したりできるよ。画像では、図鑑で出会った<b>ボン</b>がセリフを言ってくれるんだ。', '大当たりが終わった直後には、<b>「結果をシェア」</b>ボタンが少しの間だけ出るよ。'] },
   { t: '⑭ セーブと、困ったとき', bon: [3, 3], say: 'こまったときは、ここを見てね〜！ うち、ごはんつくって待ってるよ〜', b: ['遊んだ記録は、このブラウザの中に<b>自動で保存</b>されるよ。ブラウザのデータを消したり、機種を変えたりすると、消えてしまうんだ。', '大事なデータは、設定の<b>「データのバックアップ」</b>でコードを保存しておこう。別の端末では、そのコードを読み込めば続きから遊べるよ。', '表示がおかしいときや、新しい版に変えたいときは、画面右上の<b>「更新」</b>ボタンを押してね。セーブは消えないよ。', '光の演出が苦手なときは、設定で<b>「光の演出：弱め」</b>にできるよ。長く遊びすぎないよう、ときどき休けいしてね。'] },
 ];
@@ -3477,7 +3499,7 @@ function openSettings() {
     };
   };
   $('stWipe').onclick = () => {
-    openSub(`<h2 style="font-size:22px;color:#b3261e">データを削除</h2><div style="font-size:14px;line-height:1.7;margin:8px 0">持ち玉、ボンコイン、図鑑、ガチャで集めたパーツ、ミッション、記録、カスタムの設定が<b>すべて消えて、元にもどせないよ。</b>本当に消す？</div><button id="wipeGo" style="flex:none;width:100%;min-height:42px;border-radius:10px;border:2px solid #b3261e;background:#b3261e;color:#fff;font-weight:900">ぜんぶ消す</button><button id="wipeNo" style="flex:none;width:100%;min-height:42px;margin-top:8px;border-radius:10px">やめる</button>`);
+    openSub(`<h2 style="font-size:22px;color:#b3261e">データを削除</h2><div style="font-size:14px;line-height:1.7;margin:8px 0">持ち玉、ボンコイン、図鑑、大当たりで集めたパーツ、ミッション、記録、カスタムの設定が<b>すべて消えて、元にもどせないよ。</b>本当に消す？</div><button id="wipeGo" style="flex:none;width:100%;min-height:42px;border-radius:10px;border:2px solid #b3261e;background:#b3261e;color:#fff;font-weight:900">ぜんぶ消す</button><button id="wipeNo" style="flex:none;width:100%;min-height:42px;margin-top:8px;border-radius:10px">やめる</button>`);
     $('wipeNo').onclick = () => openSettings();
     $('wipeGo').onclick = () => {
       wiped = true;
@@ -3544,7 +3566,7 @@ function openCount() {
 }
 function openShop(tab) {
   const sh = G.shop; tab = tab === 'line' ? 'goods' : (tab || 'goods');
-  const tabs = [['goods', '景品'], ['bank', '貯玉'], ['gacha', 'ガチャ'], ['tool', 'ツール'], ['coin', 'コイン'], ['cheer', '応援']];
+  const tabs = [['goods', '景品'], ['bank', '貯玉'], ['tool', 'ツール'], ['coin', 'コイン'], ['cheer', '応援']];
   let h = `<h2 style="font-size:22px">🎁 玉の景品交換所</h2><div style="text-align:center;font-weight:900;margin:4px 0 4px">持ち玉 <span style="font-size:18px;color:#c0560a">${totalBalls()}</span> 玉 ／ 持ちUB <span style="font-size:20px;color:#c0560a">${bonOwn()}</span> UB</div><div style="background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:6px 10px;margin:0 0 8px;font-size:12px;font-weight:700;line-height:1.6;color:#6b4a1a">玉は先に<b>「UB（ユートピアボン）」</b>に両替してから、景品と交換するよ。いまは${RATES[save.rate].label}だから <b>1玉＝${save.rate}UB</b>。<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${[['100', '100玉'], ['1000', '1000玉'], ['all', 'ぜんぶ']].map(([k, n]) => `<button data-do="xch:${k}" style="flex:none;min-height:34px;border-radius:10px;border:2px solid #b57a12;background:${totalBalls() > 0 ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900;font-size:12px">${n}を両替</button>`).join('')}</div></div>`;
   h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">${tabs.map(([k, n]) => `<button data-tab="${k}" style="flex:none;min-height:36px;font-size:13px;border-radius:10px;border:2px solid ${k === tab ? '#b57a12' : '#d9c9a3'};background:${k === tab ? '#ffe08a' : '#fff'};color:#3a2a10;font-weight:800">${n}</button>`).join('')}</div>`;
   const card = 'background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:8px 10px;margin:6px 0;font-weight:700;line-height:1.6;font-size:13px';
@@ -3691,18 +3713,18 @@ const QUIZ_PACHI = [
   Q('1円パチンコは、ボンコイン1枚で何玉借りられる？', ['1000玉', '250玉', '500玉', '10玉'], '1円パチンコは1000玉。どんどん打てるよ。'),
   Q('ボンコインは、どれくらいで1枚回復する？', ['1時間', '10分', '1日', '1週間'], 'ボンコインは1時間に1枚、自動で回復するよ。'),
   Q('3つの図柄のうち2つがそろった状態は？', ['リーチ', 'ハズレ', 'プレミアム', '確変'], '2つそろうとリーチ！最後の1つがそろえば大当たりだよ。'),
-  Q('このゲームで、玉を現金に替えられる？', ['替えられない', '替えられる', '1円だけ', '10000玉から'], '完全無料・換金なし。玉は景品交換所でガチャなどに使えるよ。'),
+  Q('このゲームで、玉を現金に替えられる？', ['替えられない', '替えられる', '1円だけ', '10000玉から'], '完全無料・換金なし。玉は景品交換所でコインなどに使えるよ。'),
   Q('見たくない演出を飛ばすボタンは？', ['演出スキップ', '連続発射', '貸玉', '玉戻し'], '「演出スキップ」で、演出を飛ばせるよ。'),
 ];
 const QUIZ_GAME = [
   Q('玉の景品交換所は、メニューのどこにある？', ['「続きから」のすぐ下', '一番下', '設定の中', 'タイトルの上'], 'メニューの「続きから」のすぐ下にあるよ。'),
-  Q('ガチャで手に入るものは？', ['カスタムパーツ', 'ボンカード', '現金', '本物の玉'], 'ガチャではカスタムパーツが出るよ。'),
+  Q('カスタムパーツが手に入るのは、どんなとき？', ['大当たりしたとき', 'ガチャを引いたとき', 'コインを買ったとき', 'ログインしたとき'], '大当たりするたびに、まだ持っていないパーツが1つもらえるよ。'),
   Q('推しボンを選ぶと、色が変わらないのは？', ['ボタンの色', '液晶', '盤面', '玉と釘'], '液晶・盤面・玉・釘が推しボンの色になるよ。'),
   Q('通常変動曲の2曲は？', ['UTOPIA SPIN!!! と UTOPIA TONIGHT', 'WORLD PRISM と UTOPIA PRISM', 'BONBON FEVER!! と UTOPIA SPIN!!!', 'ボンちゃんマーチ と WORLD PRISM'], '通常変動曲は「UTOPIA SPIN!!!」と「UTOPIA TONIGHT」。期待度が高いほど「SPIN!!!」が流れやすいよ。'),
   Q('Bontifyを開いている間に流れる曲は？', ['WORLD PRISM', 'UTOPIA SPIN!!!', 'BONBON FEVER!!', 'ボンちゃんマーチ'], 'Bontifyでは「WORLD PRISM」が流れるよ。'),
   Q('大当たりのテーマ曲に選べるのは？', ['UTOPIA SPIN☆☆☆ と BONBON FEVER!!', 'WORLD PRISM と UTOPIA TONIGHT', 'ボンちゃんマーチ だけ', '魔法の言葉 だけ'], '大当たり曲は「UTOPIA SPIN☆☆☆」と「BONBON FEVER!!」から選べるよ。'),
   Q('ボンクイズは、1日に何問できる？', ['3問', '1問', '10問', '無制限'], '1日3問まで。正解するとボンコイン1枚もらえるよ。'),
-  Q('応援ガチャは、1日に何回引ける？', ['1回', '3回', '10回', '無制限'], '応援ガチャは1日1回、コインを使わずに引けるよ。'),
+  Q('大当たりでもらえるパーツは、ダブることがある？', ['ない（まだ持ってないものが出る）', 'よくある', 'いつもダブる', 'もらえない'], '持っていないパーツから選ばれるので、ダブらないよ。'),
   Q('シェア画像でセリフを言うボンは、どこから選べる？', ['図鑑で出会ったボン', '図鑑の全員', '最初の3人だけ', '選べない'], '図鑑で出会ったボンから選べるよ。'),
   Q('台の枠に「ある」のは？', ['北欧風・アンデス風・アジア風・アフリカ風・中東風', '宇宙風', '海底風', 'ホラー風'], '台の枠には、北欧・アンデス・アジア・アフリカ・中東の民族風があるよ。'),
   Q('データを消さずに最新版にするボタンは？', ['右上の「更新」', '「玉戻し」', '「連続発射」', '「貸玉」'], '右上の「更新」を押すと、セーブを残したまま最新版になるよ。'),
@@ -3722,7 +3744,7 @@ const QUIZ_TF = [
   ['このゲームは、課金すると大当たりしやすくなる。', false, 'このゲームは完全無料。課金も換金もないよ。'],
   ['保留の色や予告は、当たりやすさを変える。', false, '保留の色や予告は、お楽しみの演出だよ。当たりやすさは変わらないよ。'],
   ['ボンクイズは、正解するとボンコインがもらえる。', true, '正解すると、ボンコインが1枚もらえるよ。'],
-  ['景品交換所で、玉を現金に替えられる。', false, '換金はできないよ。ガチャなどに使えるよ。'],
+  ['景品交換所で、玉を現金に替えられる。', false, '換金はできないよ。コインなどに使えるよ。'],
   ['にこボンは歌とダンスが得意。', true, 'にこボンは歌とダンスが得意だよ。'],
   ['にじボンの一人称は「ぼく」。', false, 'にじボンの一人称は「我輩」だよ。'],
   ['てれボンは恥ずかしがり屋で、敬語で話す。', true, 'てれボンは「私」で、敬語で話すよ。'],
@@ -3783,7 +3805,7 @@ function openDex(tab) {
   const tabs = [['bon', 'ボン'], ['sym', '図柄'], ['fx', '演出'], ['rec', '記録']];
   let h = `<h2 style="font-size:22px">📖 図鑑</h2><div class="tabs">${tabs.map(([k, n]) => `<button data-t="${k}" class="${k === dexTab ? 'on' : ''}">${n}</button>`).join('')}</div>`;
   if (dexTab === 'bon') {
-    h += `<div style="font-size:11px;color:#8a6a30;margin-bottom:6px">解放 ${bonCount()} / 7　（演出で登場・図柄で大当たり・応援ガチャで会えると解放）</div><div class="grid7">`;
+    h += `<div style="font-size:11px;color:#8a6a30;margin-bottom:6px">解放 ${bonCount()} / 7　（演出で登場・図柄で大当たりすると解放）</div><div class="grid7">`;
     for (let i = 0; i < 7; i++) {
       const open = bonOpen(i), c = G.gacha.cards[i] || 0;
       h += `<div class="gc ${open ? '' : 'lock'}"><div class="art"><img src="${bonArt(i)}" alt="" class="${open ? '' : 'sil'}"></div><b>${open ? SYMBOL_NAMES[i] : '？？？'}</b>${open ? `応援カード ${c}枚<br>当てた回数 ${G.dex.sym[7 + i] || 0}` : 'ひみつ'}</div>`;
@@ -3810,7 +3832,7 @@ function openDex(tab) {
     const r = G.rec, rows = [
       ['遊技回数', state.plays], ['打った玉', state.shot], ['入賞', state.hit], ['通常回転', state.spins], ['大当たり', state.wins], ['最高持ち玉', state.maxHave],
       ['最大連チャン', r.bestChain], ['確変突入', r.kaku], ['時短突入', r.jitan], ['7揃い', r.seven], ['プレミアム', r.premium], ['電チュー入賞', r.den],
-      ['応援ガチャ', r.gacha], ['クイズ正解', `${r.quizOk} / ${r.quizAll}`], ['ログイン日数', G.login.total], ['連続ログイン', G.login.streak + '日'],
+      ['もらったパーツ', r.gacha], ['クイズ正解', `${r.quizOk} / ${r.quizAll}`], ['ログイン日数', G.login.total], ['連続ログイン', G.login.streak + '日'],
     ];
     h += rows.map(([a, b]) => `<div class="row"><div>${a}</div><div>${b}</div></div>`).join('');
   }
@@ -4078,7 +4100,7 @@ function openCustom(tab) {
   tab = tab || custom.lastTab || 'look'; if (tab !== 'skin') { custom.lastTab = tab; saveCustom(); }
   const tabs = [['look', '見た目'], ['hold', '保留'], ['yk', '予告'], ['snd', '音'], ['tool', 'ツール'], ['bgm', 'BGM']];
   let h = '<h2 style="font-size:22px">🎨 カスタム</h2><div class="bgmsel" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px">' + tabs.map(([k, n]) => `<button data-ctab="${k}" class="${tab === k ? 'on' : ''}">${n}</button>`).join('') + '</div>';
-  const opt = (attr, val, on, label, sub, locked, img) => `<button ${locked ? 'disabled' : `data-${attr}="${val}"`} class="${on ? 'on' : ''}" style="${locked ? 'opacity:.45;' : ''}">${img ? `<img src="${img}" alt="" style="width:100%;border-radius:6px;display:block;margin-bottom:3px">` : ''}${label}<small>${locked ? '🔒 ガチャで入手' : (sub || '')}</small></button>`;
+  const opt = (attr, val, on, label, sub, locked, img) => `<button ${locked ? 'disabled' : `data-${attr}="${val}"`} class="${on ? 'on' : ''}" style="${locked ? 'opacity:.45;' : ''}">${img ? `<img src="${img}" alt="" style="width:100%;border-radius:6px;display:block;margin-bottom:3px">` : ''}${label}<small>${locked ? '🔒 大当たりで入手' : (sub || '')}</small></button>`;
   if (tab === 'hold') {
     h += '<div class="bgmh">保留ランプの見た目（変わるのは見た目だけ。当たりやすさは同じ）</div><div class="bgmsel">';
     const hd = holdDesign();
@@ -4110,7 +4132,7 @@ function openCustom(tab) {
     grp('図柄（ボン）の見せ方（見た目だけ）', 'sym', custom.sym, SYM_STYLE);
     grp('推しボンの飾り（台の横と液晶の隅に立ち絵。予告でポーズが変わる）', 'oshiDeco', custom.oshiDeco, { on: 'あり', off: 'なし' });
     grp('演出（予告・リーチ・大当たり）のイラスト', 'art', custom.art, { new: 'ポーズいろいろ', old: 'いつもの1枚' });
-    const lk = (ttl, attr, items) => { h += `<div class="bgmh">${ttl}</div><div class="bgmsel" style="grid-template-columns:repeat(2,1fr)">` + items.map(([v, n, key]) => { const lock = key && !partOwned(key); return `<button ${lock ? 'disabled' : `data-lk="${attr}:${v}"`} class="${custom[attr] === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : ''}</small></button>`; }).join('') + '</div>'; };
+    const lk = (ttl, attr, items) => { h += `<div class="bgmh">${ttl}</div><div class="bgmsel" style="grid-template-columns:repeat(2,1fr)">` + items.map(([v, n, key]) => { const lock = key && !partOwned(key); return `<button ${lock ? 'disabled' : `data-lk="${attr}:${v}"`} class="${custom[attr] === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 大当たりで入手' : ''}</small></button>`; }).join('') + '</div>'; };
     lk('玉の飾り（見た目だけ）', 'bfx', [['none', 'なし'], ['halo', 'ひかり玉', 'halo'], ['spark', 'キラキラ玉', 'spark'], ['heart', 'ハート玉', 'heart'], ['rainbow', 'にじ玉', 'rainbow'], ['snow', '雪の玉', 'snow'], ['flame', 'ほのお玉', 'flame']]);
     lk('盤面のもよう（見た目だけ）', 'bg', [['none', 'なし'], ['dots', '水玉', 'dots'], ['stars', '星空', 'stars'], ['wave', 'なみ', 'wave'], ['check', 'チェック', 'check'], ['rainbow', 'にじ', 'rainbow'], ['hex', 'ハニカム', 'hex']]);
     grp('玉の色', 'ball', custom.ball, BALL_COL, k => dot(`radial-gradient(circle at 35% 30%,${BALL_COL[k][1][0]},${BALL_COL[k][1][2]})`));
@@ -4119,7 +4141,7 @@ function openCustom(tab) {
     grp('リーチのときの背景色', 'reach', custom.reach, REACH_TINT, k => dot(REACH_TINT[k][1] ? `rgb(${REACH_TINT[k][1]})` : '#ddd'));
   } else if (tab === 'snd') {
     h += '<div class="bgmh">効果音のセット（音の質感だけ変わるよ）</div><div class="bgmsel" style="grid-template-columns:repeat(1,1fr)">';
-    [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['bell', 'ベル音セット', 'bell'], ['wood', '木の音セット', 'wood'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : '押すと試し聴き'}</small></button>`; });
+    [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['bell', 'ベル音セット', 'bell'], ['wood', '木の音セット', 'wood'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 大当たりで入手' : '押すと試し聴き'}</small></button>`; });
     h += '</div><div class="bgmh">雰囲気の音</div><div class="bgmsel">';
     h += `<button data-tg="voice" class="${custom.voice !== 'off' ? 'on' : ''}">ボンのボイス<small>${custom.voice !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="sub" class="${custom.sub !== 'off' ? 'on' : ''}">字幕<small>${custom.sub !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
     h += '</div><div style="font-size:11px;color:#8a6a30;margin-top:6px;line-height:1.5">音量そのものは、設定の「音量」で、効果音・玉ごとに変えられるよ。</div>';
@@ -4224,12 +4246,12 @@ const BF_TRACKS = [
   { id: 38, src: 'spin2', title: "予告にはボンちゃん通過や虹色フラッシュなど、いろいろあるのだ。虹が出たら、覚悟するがよい", cond: { k: 'spins', n: 240 } },
   { id: 39, src: 'bonus', title: "大当たり中は、我輩が画面の真ん中で踊るのだ。見よ、この華麗なステップを！", cond: { k: 'wins', n: 14 } },
   { id: 40, src: 'theme:3', title: "もぐボンは、大当たりのたびにおにぎりを一つ食べるのだ。画面の外でな。……我輩の分は残っておらぬ", cond: { k: 'wins', n: 18 } },
-  { id: 41, src: 'spin2', title: "ガチャのパーツは、見た目だけでなく音まで変えられるのだ。8bitサウンドは、特に出にくいのだぞ", cond: { k: 'plays', n: 12 } },
+  { id: 41, src: 'spin2', title: "大当たりでもらえるパーツは、見た目だけでなく音まで変えられるのだ。8bitサウンドは、特に出にくいのだぞ", cond: { k: 'plays', n: 12 } },
   { id: 42, src: 'special', title: "カスタムでは、保留の形や予告の見た目を変えられるのだ。我輩のおすすめは、ボンちゃん保留である", cond: { k: 'wins', n: 20 } },
   { id: 43, src: 'theme:1', title: "にこボンは友だちを連れてきたがるのだ。この台に、七人みんなで座れるとよいのだがな", cond: { k: 'spins', n: 280 } },
   { id: 44, src: 'spin2', title: "確率はおよそ三百分の一。当たらぬ日があるのは当然なのだ。それでも回すのが、人というものであるな", cond: { k: 'plays', n: 14 } },
   { id: 45, src: 'theme:6', title: "予告が出ても、外れる日はあるのだ。予告とは、期待を盛る演出なのである。盛るのは、我輩の得意分野であるがな！", cond: { k: 'wins', n: 22 } },
-  { id: 46, src: 'spin2', title: "景品交換所では、玉をいったん「UB（ユートピアボン）」に両替してから、コインやガチャに替えるのだ。一円は一、四円は四。現金には替えられぬ、安心の仕組みである", cond: { k: 'plays', n: 16 } },
+  { id: 46, src: 'spin2', title: "景品交換所では、玉をいったん「UB（ユートピアボン）」に両替してから、コインなどに替えるのだ。一円は一、四円は四。現金には替えられぬ、安心の仕組みである", cond: { k: 'plays', n: 16 } },
   { id: 47, src: 'spin2', title: "「ボンでもわかるパチンコ」は、そなたの味方である。わからぬときは、設定から開くがよいぞ", cond: { k: 'spins', n: 330 } },
   { id: 48, src: 'theme:2', title: "さくしゃボンの好物は柿らしいのだ。それゆえ、我輩も柿が好きなのだぞ。偶然ではないのだぞ", cond: { k: 'kaku', n: 2 } },
   { id: 49, src: 'special', title: "データカウンターには、連チャン数や大当たりの履歴が出るのだ。自慢したくなったら、結果を画像でシェアするがよい", cond: { k: 'spins', n: 380 } },
@@ -4421,7 +4443,7 @@ const TUT_PAGES = [
   ['図柄がそろえば、それが<b>大当たり</b>なのだ！', '大当たり中は<b>アタッカー</b>（大きな入口）が開いて、玉がどんどん増えるのだぞ。ボンたちも、みんなで祝ってくれるのだ。'],
   ['打ち方は二つあるのだ。', 'ふだんは<b>左打ち</b>、大当たり中や確変・時短中は<b>右打ち</b>なのだ。画面の「右打ち」ボタンで切りかえよ。間違えると、玉がムダになってしまうぞ。液晶にも指示が出るから、安心せよ。'],
   ['ルーレットが回っている間に入った玉は、<b>保留</b>というのだ。', '最大8つまで、順番待ちができるのだぞ。保留の色は、青、緑、赤、虹の順に期待度が高い。虹が出たら……覚悟するがよい！'],
-  ['最後に、お金の話なのだ。', 'このゲームは<b>完全無料</b>・換金なしなのだ。遊ぶときは<b>ボンコイン1枚</b>で玉を借りるが、コインは1時間に1枚、自動で戻るのだぞ。たまった玉は、景品交換所で<b>UB（ユートピアボン）</b>に両替して、ガチャなどと交換できるのだ。'],
+  ['最後に、お金の話なのだ。', 'このゲームは<b>完全無料</b>・換金なしなのだ。遊ぶときは<b>ボンコイン1枚</b>で玉を借りるが、コインは1時間に1枚、自動で戻るのだぞ。たまった玉は、景品交換所で<b>UB（ユートピアボン）</b>に両替して、コインなどと交換できるのだ。'],
 ];
 function tutFinish() { closeSub(); }
 function openTutorial(step, i) {
