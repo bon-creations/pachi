@@ -704,7 +704,7 @@ function startNextSpin() {
   lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res); holdUpgrade();
   lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; if (hasTool('omen')) omenCheck(); state.spins++; G.life.spins++; sfxSpinStart();
   if (MODE.k === 'kaku' || MODE.k === 'jitan') { lcd.spinBgm = modeBgm(); bgmPlay(lcd.spinBgm); }   // 確変中は「BONBON FEVER!!」、時短中は「UTOPIA SPIN☆☆☆」を、途切れず流す
-  else if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
+  else if ((bgm.name || '').indexOf('spin') === 0 && (bgmWA || (bgmAudio.el && !bgmAudio.el.paused)) && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
 }
 /* 保留の色（先読み予告）。抽選結果が決まったあとに「見せ方」だけ決める。当たりの結果は変えない。青＝ふつう／緑＝チャンス／赤＝大チャンス／虹＝激アツ */
@@ -4054,7 +4054,7 @@ function bgmWAStart(name, url, rate) {
   const ac = AC(); if (!ac || bgm.name !== name || bgmWA) return;
   const go = buf => {
     if (bgm.name !== name || bgmWA) return;
-    try { const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = buf; src.loop = true; src.playbackRate.value = rate || 1; g.gain.value = snd.mute ? 0 : Math.min(1, snd.bgm); src.connect(g); g.connect(ac.destination); src.start(0); bgmWA = { src, g, name }; } catch (e) {}
+    try { const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = buf; src.loop = true; src.playbackRate.value = rate || 1; g.gain.value = snd.mute ? 0 : Math.min(1, snd.bgm); src.connect(g); g.connect(ac.destination); src.start(0); { const ea = bgmAudio.el; if (ea) { try { ea.pause(); } catch (e) {} ea.onplaying = () => { if (bgmWA) { try { ea.pause(); } catch (e) {} } }; } } /* WebAudioで鳴らし始めたら、<audio>のほうは止める（二重に鳴らない） */ bgmWA = { src, g, name }; } catch (e) {}
   };
   if (bgmBuf[url]) { go(bgmBuf[url]); return; }
   fetch(url).then(r => r.arrayBuffer()).then(ab => new Promise((ok, ng) => ac.decodeAudioData(ab, ok, ng))).then(b => { bgmBuf[url] = b; go(b); }).catch(() => {});
@@ -4106,6 +4106,7 @@ function chooseSpinBgm(P, res) {   // 演出の強さ（期待度）が高いほ
 /* リーチ中は変動BGMを速く（キーは原曲のまま）。戻すときは spinBgmRate(false)。流れていなければ false */
 /* リーチ中もテンポ・キーは変えない（曲は止めずに流す） */
 function spinBgmRate(fast) {
+  if (bgmWA && (bgm.name || '').indexOf('spin') === 0) { try { bgmWA.src.playbackRate.value = (typeof supportOn === 'function' && supportOn()) ? SPIN_FAST_RATE : 1; } catch (e) {} return true; }   // WebAudioで鳴らしているときも、曲はそのまま続ける
   const a = bgmAudio.el; if (!a || a.paused || (bgm.name || '').indexOf('spin') !== 0) return false;
   const base = (typeof supportOn === 'function' && supportOn()) ? SPIN_FAST_RATE : 1;
   try { a.preservesPitch = a.mozPreservesPitch = a.webkitPreservesPitch = true; a.playbackRate = base; } catch (e) { return false; }
@@ -4117,7 +4118,7 @@ function bgmPlay(name) {
   if (url) {
     try {
       let a = bgmEls[name]; if (!a || a.dataset.u !== url) { a = new Audio(url); a.dataset.u = url; a.preload = 'auto'; bgmEls[name] = a; }
-      a.loop = true; a.volume = snd.mute ? 0 : Math.min(1, snd.bgm); a.muted = false; try { a.currentTime = 0; } catch (e) {}
+      a.onplaying = null; a.loop = true; a.volume = snd.mute ? 0 : Math.min(1, snd.bgm); a.muted = false; try { a.currentTime = 0; } catch (e) {}
       a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = 1;
       if (name.indexOf('spin') === 0 && typeof supportOn === 'function' && supportOn()) { a.playbackRate = SPIN_FAST_RATE; }   // 時短中は変動が速いので、曲も速く（キーは原曲のまま）
       if (name === 'theme:2' || name === 'theme:4' || name === 'theme:5') a.playbackRate = THEME_FAST;   // ひょえ・ねむ・てれのテーマは1.25倍速（キーは原曲のまま）
@@ -4125,7 +4126,7 @@ function bgmPlay(name) {
       const p = a.play(); if (p && p.catch) p.catch(err => { if (err && err.name === 'NotAllowedError') bgmBlocked = true; else if (bgm.name === name && !bgmWA) { bgmAudio.el = null; bgmProc(name); } });   // 曲ファイルが読めない（置き忘れなど）なら内蔵曲に
       a.onerror = () => { if (bgm.name === name && bgmAudio.el === a && !bgmWA) { bgmAudio.el = null; bgmProc(name); } };   // ブロックされたら、次のタップで鳴らし直す
       bgmAudio.el = a;
-      setTimeout(() => { try { if (bgm.name === name && bgmAudio.el === a && (a.paused || a.currentTime < 0.05)) bgmWAStart(name, url, a.playbackRate); } catch (e) {} }, 1500);   // 1.5秒たっても進んでいなければ、WebAudioで鳴らす
+      setTimeout(() => { try { if (bgm.name === name && bgmAudio.el === a && (a.paused || a.currentTime < 0.05)) bgmWAStart(name, url, a.playbackRate); } catch (e) {} }, 4000);   // 1.5秒たっても進んでいなければ、WebAudioで鳴らす
       return;
     } catch (e) { bgmAudio.el = null; }   // 失敗したら内蔵曲にフォールバック
   }
