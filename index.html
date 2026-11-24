@@ -221,7 +221,7 @@
         <div id="toolRow">
           <button id="bSpeed">🔒倍速</button>
           <button id="bBest" style="display:none">🤖ベスト角度</button>
-          <span class="tchip" id="tmRate" style="display:none"></span><span class="tchip" id="tmPL" style="display:none"></span><span class="tchip" id="tmNav" style="display:none"></span><span class="tchip" id="tmCh" style="display:none"></span><button id="bNail" style="display:none">🔍釘ヨミ</button>
+          <span class="tchip" id="tmRate" style="display:none"></span><span class="tchip" id="tmPL" style="display:none"></span><span class="tchip" id="tmNav" style="display:none"></span><span class="tchip" id="tmCh" style="display:none"></span><span class="tchip" id="tmYuu" style="display:none"></span><span class="tchip" id="tmExp" style="display:none"></span><span class="tchip" id="tmLast" style="display:none"></span><button id="bNail" style="display:none">🔍釘ヨミ</button>
         </div>
         <div id="opts" style="display:none">
           <button id="bProb">🎰 確率 1/319</button><button id="bHow">❓ 遊び方</button>
@@ -467,6 +467,8 @@ const PARTS = {
  [63, 'bfx', 'rainbow', 'にじ玉', '玉が虹色にゆっくり光る'], [64, 'bfx', 'snow', '雪の玉', '玉から雪のつぶがふわふわ落ちる'], [65, 'bfx', 'flame', 'ほのお玉', '玉のうしろに小さな炎がゆれる'],
  [66, 'bg', 'check', 'チェックの盤面', '盤面にやさしいチェックもようが出る'], [67, 'bg', 'rainbow', 'にじの盤面', '盤面にななめの虹のしまが出る'], [68, 'bg', 'hex', 'ハニカムの盤面', '盤面に六角形のもようが出る'],
  [69, 'se', 'bell', 'ベル音セット', '効果音がきらきらしたベルの音になる'], [70, 'se', 'wood', '木の音セット', '効果音がコロコロした木の音になる'],
+ [71, 'bfx', 'bstar', '星くず玉', '玉のまわりを小さな星がくるくる回る'], [72, 'bfx', 'bleaf', 'はっぱ玉', '玉から木の葉がひらひら落ちる'],
+ [73, 'bg', 'petal', '花もようの盤面', '盤面にやさしい花がらが出る'], [74, 'bg', 'diamond', 'ダイヤの盤面', '盤面にひし形のもようが出る'],
  [61, 'se', 'chime', 'チャイム音セット', '効果音がやわらかいチャイムの音になる'], [62, 'se', '8bit', '8bitサウンド', '効果音がレトロなゲーム機の音になる']].forEach(([id, kind, key, name, desc]) => { PARTS[id] = { kind, key, name, desc }; });
 [['おこボン', 'ikari', ['#c0392b', '#2a0806'], ['#ff7a5c', '#c0392b', '#6a1a14']], ['にこボン', 'niko', ['#e0a020', '#3a2404'], ['#ffe27a', '#f0a830', '#a86a14']],
  ['ひょえボン', 'hyoe', ['#2a8ad0', '#04162a'], ['#7ad4ff', '#2a8ad0', '#144a7a']], ['もぐボン', 'mogu', ['#4a9a3a', '#0c200a'], ['#a8e07a', '#4a9a3a', '#2a5a22']],
@@ -501,6 +503,7 @@ const skinCol0 = (sub, def) => def;   // 着せ替え（液晶・盤面の色パ
 const PART_RARE = { 63: 1, 67: 1, 62: 1, 6: 1, 11: 1, 15: 1, 26: 1, 33: 1, 46: 1, 53: 1, 54: 1 };
 const CARD_N = 30;   // 16〜19番は欠番（ボン以外の色の着せ替えは廃止）
 const GACHA_W = [8, 8, 8, 8, 8, 8, 3, 7, 7, 7, 7, 0, 5, 5, 5, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6, 3, 6, 6, 6, 6, 6, 6, 3, 1, 5, 5, 5, 4, 4, 4, 4, 2, 2, 4, 4, 4, 3, 3, 4, 4];   // 40〜46＝デフォルメ版／47〜53＝顔アップ版／54＝ボン大集合
+GACHA_W[71] = 4; GACHA_W[72] = 5; GACHA_W[73] = 5; GACHA_W[74] = 4;   // 新パーツ（星くず玉・はっぱ玉・花もよう・ダイヤ）
 const GACHA_KIND = { parts: ['カスタムパーツ（保留・予告・見た目・音）', '🎨', i => (i >= 7 && i < 16) || i >= 55] };
 const GACHA_PRICE = { parts: 300 };
 function gachaRoll(kind) {
@@ -1297,6 +1300,7 @@ function drawLCD(c) {
     c.fillStyle = '#fff'; c.textBaseline = 'middle'; c.fillText(txt, LCD.x + 11, LCD.y + 10);
     if (G.chain >= 2) { c.textAlign = 'right'; c.fillStyle = '#ffe14d'; c.fillText(`${G.chain}連チャン`, LCD.x + LCD.w - 7, LCD.y + 10); }
   }
+  try { drawShopFx(c); } catch (e) {}
   c.restore(); c.restore();
 }
 /* アタッカー（大当たり中のみ開く）と、大当たり導入の全画面演出 */
@@ -1891,6 +1895,9 @@ const TOOLS = [
   { id: 'autoR', icon: '➡️', name: '右打ち自動きりかえ', price: 4500, desc: '大当たりや時短・確変に入ったらハンドルを自動で右打ちに、終わったら左打ちに切りかえる。うっかり打ちミスがなくなるよ。' },
   { id: 'meter', icon: '📊', name: '回転率メーター', price: 3500, desc: '遊んでいる画面に、いまの回転率（1000円あたり）とボーダーとの差をいつも表示する。' },
   { id: 'ledger', icon: '💰', name: '収支メーター', price: 3000, desc: '遊び始めてからの玉の増減（収支）を、いつも画面に表示する。' },
+  { id: 'yuu', icon: '⏳', name: '遊タイムカウンター', price: 3000, desc: '遊タイム（通常のまま800回転で始まる時短）まで、あと何回転かをいつも表示する。' },
+  { id: 'exp', icon: '🌡', name: '期待度メーター', price: 4500, desc: '回転中の演出の強さ（通常・チャンス・大チャンス・激アツ・プレミアム）を、文字でいつも表示する。当たりかどうかまではわからないよ。' },
+  { id: 'last', icon: '📒', name: '前回の出玉メモ', price: 3000, desc: '前回の大当たりで、何回転目に当たって、玉がいくつ増えたかをいつも表示する。' },
   { id: 'auto', icon: '🤖', name: '自動ベスト角度', price: 8000, desc: '「ベスト角度」ボタンが使えるようになる。いまの打ち方（左打ち・右打ち）で、いちばん入賞しやすい角度を計算してハンドルを合わせてくれる。' },
 ];
 const ownTool = id => !!(G && G.shop && G.shop.tools && G.shop.tools[id]);
@@ -1904,6 +1911,9 @@ function updTools() {
     want(tr, hasTool('meter'), rate === null ? '回転率 ―' : `回転率 ${rate.toFixed(1)} (${rate >= bi.border ? '+' : ''}${(rate - bi.border).toFixed(1)})`); }
   { if (sess0 === null) sess0 = totalBalls(); const d = totalBalls() - sess0; want(tp, hasTool('ledger'), `収支 ${d >= 0 ? '+' : ''}${d}玉`); if (tp) tp.style.color = d >= 0 ? '#1f7a3a' : '#b03030'; }
   want($('tmCh'), hasTool('chain'), `連チャン ${G.chain | 0}（最高 ${G.rec.bestChain | 0}）`);
+  want($('tmYuu'), hasTool('yuu'), MODE.k === 'normal' ? `遊タイムまで あと${Math.max(0, YUU_SPINS - (G.yuu | 0))}回転` : '遊タイム対象外（確変・時短・大当たり中）');
+  want($('tmExp'), hasTool('exp'), (lcd.phase === 'spin' && lcd.plan) ? `期待度 ${TIER[lcd.plan.tier | 0] || '通常'}` : '期待度 ―');
+  { const hh = Array.isArray(G.hist) && G.hist.length ? G.hist[G.hist.length - 1] : null; want($('tmLast'), hasTool('last'), hh ? `前回 ${hh.sp}回転で当たり・${hh.g | 0}玉` : '前回の大当たり ―'); }
   want($('tmNav'), hasTool('nav'), navPct === null ? '入賞率 計算中' : `入賞率 約${navPct}％`);
   { const bn = $('bNail'); if (bn) { const d = hasTool('nail') ? '' : 'none'; if (bn.style.display !== d) bn.style.display = d; } }
   if (hasTool('autoR')) { const need = needSide(); if (need !== lastNeed) { lastNeed = need; if (need === 'R') { sideLock = 'R'; setSide('R'); toast('右打ちに自動で切りかえたよ'); } else { sideLock = null; if (sideOf() !== 'L') setSide('L'); updateDial(); toast('左打ちにもどしたよ'); } } }
@@ -1998,6 +2008,8 @@ function drawBgPat() {
     else if (k === 'stars') { for (let i = 0; i < 70; i++) { c.fillStyle = `rgba(255,248,200,${.12 + rnd() * .25})`; c.beginPath(); c.arc(rnd() * W * S, rnd() * H * S, (0.8 + rnd() * 1.6) * S, 0, 7); c.fill(); } }
     else if (k === 'check') { c.fillStyle = 'rgba(255,255,255,.055)'; for (let y = 0; y < H; y += 30) for (let x = ((y / 30) % 2) * 30; x < W; x += 60) c.fillRect(x * S, y * S, 30 * S, 30 * S); }
     else if (k === 'rainbow') { const cols = ['255,90,90', '255,190,60', '255,240,90', '90,220,120', '90,170,255', '170,110,255']; c.lineWidth = 16 * S; for (let i = -12; i < 40; i++) { c.strokeStyle = `rgba(${cols[(i + 60) % 6]},.07)`; c.beginPath(); c.moveTo((i * 16) * S, 0); c.lineTo((i * 16 + H * .5) * S, H * S); c.stroke(); } }
+    else if (k === 'petal') { c.fillStyle = 'rgba(255,200,220,.09)'; for (let y = 0; y < H + 40; y += 44) for (let x = ((y / 44) % 2) * 22; x < W + 40; x += 44) for (let p = 0; p < 5; p++) { const a = p * 1.2566; c.beginPath(); c.arc((x + Math.cos(a) * 6) * S, (y + Math.sin(a) * 6) * S, 4.2 * S, 0, 7); c.fill(); } }
+    else if (k === 'diamond') { c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 2 * S; for (let y = 0; y < H + 30; y += 30) for (let x = ((y / 30) % 2) * 15; x < W + 30; x += 30) { c.beginPath(); c.moveTo(x * S, (y - 12) * S); c.lineTo((x + 12) * S, y * S); c.lineTo(x * S, (y + 12) * S); c.lineTo((x - 12) * S, y * S); c.closePath(); c.stroke(); } }
     else if (k === 'hex') { c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 1.5 * S; const R = 16, w = R * 1.732; for (let row = 0, y = 0; y < H + R; row++, y += R * 1.5) for (let x = (row % 2) * w / 2; x < W + w; x += w) { c.beginPath(); for (let q = 0; q < 6; q++) { const a = Math.PI / 6 + q * Math.PI / 3; q ? c.lineTo((x + R * Math.cos(a)) * S, (y + R * Math.sin(a)) * S) : c.moveTo((x + R * Math.cos(a)) * S, (y + R * Math.sin(a)) * S); } c.closePath(); c.stroke(); } }
     else { c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 3 * S; for (let y = 10; y < H; y += 26) { c.beginPath(); for (let x = 0; x <= W; x += 8) { const yy = y + Math.sin(x / 22 + y / 40) * 6; x ? c.lineTo(x * S, yy * S) : c.moveTo(x * S, yy * S); } c.stroke(); } }
   }
@@ -2010,6 +2022,8 @@ function drawBallFx(r) {
   else if (k === 'rainbow') { c.globalCompositeOperation = 'lighter'; for (const b of balls) { const g = c.createRadialGradient(b.x * S, b.y * S, r * 0.5, b.x * S, b.y * S, r * 2.6), h = (t * 120 + b.x * 0.5) % 360; g.addColorStop(0, `hsla(${h},100%,65%,.42)`); g.addColorStop(1, `hsla(${(h + 60) % 360},100%,60%,0)`); c.fillStyle = g; c.beginPath(); c.arc(b.x * S, b.y * S, r * 2.6, 0, 7); c.fill(); } }
   else if (k === 'snow') { c.fillStyle = '#ffffff'; for (const b of balls) for (let j = 0; j < 3; j++) { const ph = (t * 0.9 + j / 3 + b.x * 0.013) % 1, x = b.x * S + Math.sin(ph * 6 + j * 2) * r * 1.2, y = b.y * S - r * 0.8 + ph * r * 3; c.globalAlpha = 0.85 * (1 - ph); c.beginPath(); c.arc(x, y, r * 0.2, 0, 7); c.fill(); } }
   else if (k === 'flame') { c.globalCompositeOperation = 'lighter'; for (const b of balls) { const sp = Math.hypot(b.vx, b.vy) || 1, dx = -b.vx / sp, dy = -b.vy / sp; for (let j = 0; j < 4; j++) { const d = r * (0.6 + j * 0.55) + Math.sin(t * 20 + j + b.x) * r * 0.15, rr = r * (0.8 - j * 0.15); c.fillStyle = `rgba(255,${150 - j * 30},40,${0.38 - j * 0.07})`; c.beginPath(); c.arc(b.x * S + dx * d, b.y * S + dy * d, rr, 0, 7); c.fill(); } } }
+  else if (k === 'bstar') { c.fillStyle = '#fff3a0'; for (const b of balls) for (let j = 0; j < 3; j++) { const a = t * 4 + j * 2.0944 + b.x * 0.3, d = r * 1.7, x = b.x * S + Math.cos(a) * d, y = b.y * S + Math.sin(a) * d, q = r * 0.5; c.globalAlpha = 0.9; c.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? q * 0.45 : q, aa = -Math.PI / 2 + i * Math.PI / 5; c.lineTo(x + Math.cos(aa) * rr, y + Math.sin(aa) * rr); } c.closePath(); c.fill(); } }
+  else if (k === 'bleaf') { c.fillStyle = '#7ad66a'; for (const b of balls) for (let j = 0; j < 3; j++) { const ph = (t * 0.8 + j / 3 + b.x * 0.011) % 1, x = b.x * S + Math.sin(ph * 7 + j * 2) * r * 1.4, y = b.y * S - r * 0.6 + ph * r * 3.4; c.globalAlpha = (1 - ph) * 0.9; c.save(); c.translate(x, y); c.rotate(ph * 6 + j); c.beginPath(); c.ellipse(0, 0, r * 0.55, r * 0.28, 0, 0, 7); c.fill(); c.restore(); } }
   else if (k === 'heart') { c.fillStyle = '#ff7aa8'; for (const b of balls) { const x = b.x * S + r * 1.1, y = b.y * S - r * 1.5 - Math.sin(t * 4 + b.x) * r * 0.4, q = r * 0.55; c.globalAlpha = 0.85; c.beginPath(); c.moveTo(x, y + q); c.bezierCurveTo(x - q * 1.6, y - q * 0.2, x - q * 0.6, y - q * 1.2, x, y - q * 0.4); c.bezierCurveTo(x + q * 0.6, y - q * 1.2, x + q * 1.6, y - q * 0.2, x, y + q); c.fill(); } }
   c.restore();
 }
@@ -3602,7 +3616,7 @@ function openSettings() {
   const again = () => openSettings();
   $('stReload').onclick = reloadLatest;
   $('stInstall').onclick = installApp;
-  $('stTitle').onclick = showMenu;
+  $('stTitle').onclick = () => { try { closeSub(); } catch (e) {} showMenu(); };
   $('stBak').onclick = () => {
     saveGame(); let code = '';
     try { const o = {}; Object.keys(localStorage).filter(k => k.indexOf('bonutopia_') === 0 || k === 'pachi_prob').forEach(k => { o[k] = localStorage.getItem(k); }); code = btoa(unescape(encodeURIComponent(JSON.stringify(o)))); } catch (e) {}
@@ -3689,9 +3703,50 @@ function openCount() {
     }
   }, 60);
 }
+const partPrice = i => PART_RARE[i] ? 1500 : 600;
+const SHOP_FX = [
+  { id: 'fw', name: '大当たり花火', price: 2000, desc: '大当たりのお祝いで、液晶に花火が上がる' },
+  { id: 'cf', name: '紙ふぶき', price: 2000, desc: '大当たり中、液晶に紙ふぶきが舞う' },
+  { id: 'nf', name: '虹のネオン枠', price: 3000, desc: '液晶のふちが、いつも虹色にゆっくり光る' },
+];
+const GAME_DAILY = 3;
+function shopGame() { const sh = G.shop; if (!sh.gm || sh.gm.date !== todayKey()) sh.gm = { date: todayKey(), n: 0 }; return sh.gm; }
+function drawShopFx(c) {   // 玉で開放した台の演出（見た目だけ）
+  const fx = G && G.shop && G.shop.fx; if (!fx) return;
+  const on = k => fx[k] && !(custom.fx3 && custom.fx3[k] === 'off'), now = performance.now() / 1000, X = LCD.x, Y = LCD.y, W = LCD.w, H = LCD.h;
+  c.save();
+  if (on('nf')) { const g = c.createLinearGradient(X, Y, X + W, Y + H); for (let i = 0; i <= 6; i++) g.addColorStop(i / 6, `hsl(${(i * 55 + now * 90) % 360},100%,65%)`); c.strokeStyle = g; c.lineWidth = 3; c.shadowColor = 'rgba(255,255,255,.7)'; c.shadowBlur = 8; roundRect(c, X + 1.5, Y + 1.5, W - 3, H - 3, 8); c.stroke(); c.shadowBlur = 0; }
+  const winning = lcd.phase === 'intro' || lcd.phase === 'finish' || (lcd.phase === 'rounds' && bonus.round === 1 && bonus.timer < 2.4);
+  if (on('fw') && winning) {
+    for (let k = 0; k < 3; k++) { const per = 1.1, ph = ((now + k * 0.37) % per) / per, id = Math.floor((now + k * 0.37) / per) * 7 + k * 13, cx = X + 40 + ((id * 53) % Math.max(1, W - 80)), cy = Y + 50 + ((id * 31) % 120), hue = (id * 47) % 360;
+      for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, d = ph * 70, x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d + ph * ph * 26; c.globalAlpha = Math.max(0, 1 - ph); c.fillStyle = `hsl(${hue + i * 6},100%,65%)`; c.beginPath(); c.arc(x, y, 2.4 * (1 - ph * 0.5), 0, 7); c.fill(); } }
+    c.globalAlpha = 1;
+  }
+  if (on('cf') && lcd.phase === 'rounds') {
+    for (let i = 0; i < 36; i++) { const sp = 40 + (i % 5) * 14, x = X + ((i * 47) % W) + Math.sin(now * 2 + i) * 10, y = Y + ((now * sp + i * 29) % (H + 20)) - 10; c.save(); c.translate(x, y); c.rotate(now * 3 + i); c.fillStyle = `hsl(${(i * 37) % 360},90%,62%)`; c.fillRect(-3, -1.5, 6, 3); c.restore(); }
+  }
+  c.restore();
+}
+function openStopGame() {
+  const gm = shopGame(); if (gm.n >= GAME_DAILY) { toast('きょうはおしまい。また明日あそぼうね'); openShop('game'); return; }
+  openSub(`<h2 style="font-size:20px">ストップ・ザ・ボン</h2><div style="text-align:center;font-size:12px;font-weight:700;color:#6b4a1a;margin-bottom:8px">カーソルを、まん中の金色で止めよう！（タップ／スペース）</div><div id="sgBar" style="position:relative;height:46px;border-radius:12px;overflow:hidden;border:3px solid #7a5a1a;background:linear-gradient(90deg,#c9c9c9 0 18%,#8fd18f 18% 34%,#ffe27a 34% 44%,#ffb300 44% 56%,#ffe27a 56% 66%,#8fd18f 66% 82%,#c9c9c9 82% 100%)"><div id="sgCur" style="position:absolute;top:0;bottom:0;width:6px;left:0;background:#d62a4a;box-shadow:0 0 6px #fff"></div></div><div id="sgMsg" style="text-align:center;font-weight:900;font-size:16px;min-height:26px;margin:10px 0;color:#8a4a00">タップでストップ！</div><button class="big go" id="sgStop">ストップ！</button><button data-close="1" class="big">やめる</button>`);
+  const cur = document.getElementById('sgCur'), bar = document.getElementById('sgBar'), msg = document.getElementById('sgMsg'), btn = document.getElementById('sgStop');
+  let pos = 0, dir = 1, alive = true, done = false; const speed = 0.9 + gm.n * 0.25;
+  const loop = () => { if (!alive || !document.body.contains(cur)) return; pos += dir * speed * 0.016 * 1.4; if (pos >= 1) { pos = 1; dir = -1; } if (pos <= 0) { pos = 0; dir = 1; } cur.style.left = `calc(${pos * 100}% - 3px)`; requestAnimationFrame(loop); };
+  requestAnimationFrame(loop);
+  const stop = () => {
+    if (done) return; done = true; alive = false; gm.n++;
+    const d = Math.abs(pos - 0.5); let pt = 50, nm = 'ざんねん…'; if (d < 0.06) { pt = 1000; nm = 'ぴったり！！'; } else if (d < 0.16) { pt = 400; nm = 'おしい！'; } else if (d < 0.32) { pt = 150; nm = 'まあまあ'; }
+    G.shop.bon = bonOwn() + pt; saveGame(); try { pt >= 400 ? sfxChance() : sfxHold(); } catch (e) {}
+    msg.innerHTML = `${nm}　<span style="color:#c0560a">+${pt} UB</span>`; btn.textContent = gm.n >= GAME_DAILY ? 'おしまい' : 'もう1回'; btn.onclick = () => { if (gm.n >= GAME_DAILY) openShop('game'); else openStopGame(); }; document.removeEventListener('keydown', kd);
+  };
+  const kd = e => { if (e.code === 'Space') { e.preventDefault(); stop(); } };
+  document.addEventListener('keydown', kd);
+  btn.onclick = stop; bar.onclick = stop;
+}
 function openShop(tab) {
   const sh = G.shop; tab = tab === 'line' ? 'goods' : (tab || 'goods');
-  const tabs = [['goods', '景品'], ['bank', '貯玉'], ['tool', 'ツール'], ['coin', 'コイン'], ['cheer', '応援']];
+  const tabs = [['goods', '景品'], ['bank', '貯玉'], ['parts', 'パーツ'], ['fx', '演出'], ['game', 'ゲーム'], ['tool', 'ツール'], ['coin', 'コイン'], ['cheer', '応援']];
   let h = `<h2 style="font-size:22px">🎁 玉の景品交換所</h2><div style="text-align:center;font-weight:900;margin:4px 0 4px">持ち玉 <span style="font-size:18px;color:#c0560a">${totalBalls()}</span> 玉 ／ 持ちUB <span style="font-size:20px;color:#c0560a">${bonOwn()}</span> UB</div><div style="background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:6px 10px;margin:0 0 8px;font-size:12px;font-weight:700;line-height:1.6;color:#6b4a1a">玉は先に<b>「UB（ユートピアボン）」</b>に両替してから、景品と交換するよ。いまは${RATES[save.rate].label}だから <b>1玉＝${save.rate}UB</b>。<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">${[['100', '100玉'], ['1000', '1000玉'], ['all', 'ぜんぶ']].map(([k, n]) => `<button data-do="xch:${k}" style="flex:none;min-height:34px;border-radius:10px;border:2px solid #b57a12;background:${totalBalls() > 0 ? 'linear-gradient(#ffe08a,#ffb938)' : '#e6e0cc'};color:#3a2a10;font-weight:900;font-size:12px">${n}を両替</button>`).join('')}</div></div>`;
   h += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px">${tabs.map(([k, n]) => `<button data-tab="${k}" style="flex:none;min-height:36px;font-size:13px;border-radius:10px;border:2px solid ${k === tab ? '#b57a12' : '#d9c9a3'};background:${k === tab ? '#ffe08a' : '#fff'};color:#3a2a10;font-weight:800">${n}</button>`).join('')}</div>`;
   const card = 'background:#fffbe8;border:2px solid #e0b84a;border-radius:12px;padding:8px 10px;margin:6px 0;font-weight:700;line-height:1.6;font-size:13px';
@@ -3721,6 +3776,11 @@ function openShop(tab) {
     h += `<div style="display:flex;gap:6px;margin-top:6px"><button data-do="wd:500" style="flex:1;min-height:38px;border-radius:10px;border:2px solid #3b8bc4;background:${sn > 0 ? 'linear-gradient(#cfeaff,#8fcaf5)' : '#e6e0cc'};color:#103a5c;font-weight:900">500玉 ひきだす</button><button data-do="wd:all" style="flex:1;min-height:38px;border-radius:10px;border:2px solid #3b8bc4;background:${sn > 0 ? 'linear-gradient(#cfeaff,#8fcaf5)' : '#e6e0cc'};color:#103a5c;font-weight:900">ぜんぶ ひきだす</button></div>`;
     if (playing) h += '<div style="font-size:11px;color:#a04a00;margin-top:6px;font-weight:800">遊技中は預けられないよ。いったんメニューにもどってね。</div>';
     h += `</div><div style="${card}"><b>持ち玉遊技のきろく</b><div style="font-size:12px;font-weight:700;color:#6b4a1a;margin-top:4px">打った玉のうち、貸玉 ${shL.toLocaleString()}玉 ／ 持ち玉・貯玉 ${shM.toLocaleString()}玉<br>持ち玉比率 <b style="font-size:16px;color:#c0560a">${ratio}%</b>${ttl ? `　<span style="color:#c0560a">【${ttl}】</span>` : ''}<br>持ち玉で打つほど、ボンコインを使わずに長く遊べるよ。</div></div>`;
+  } else if (tab === 'parts') {
+    const ok = GACHA_KIND.parts[2], ids = GACHA_W.map((w, i) => i).filter(i => GACHA_W[i] > 0 && ok(i) && PARTS[i]), left = ids.filter(i => !(G.gacha.cards[i] > 0));
+    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">UBで、カスタムパーツ（見た目・音）を選んで買えるよ。大当たりでも、持っていないパーツが1つもらえるのだ。もっている ${ids.length - left.length} / ${ids.length} 種</div>`;
+    if (!left.length) h += `<div style="${card}">ぜんぶ集めたよ！ すごい！</div>`;
+    left.forEach(i => { const pr = partPrice(i); h += `<div style="${card}"><b>${PARTS[i].name}</b>${PART_RARE[i] ? '　<span style="color:#c0560a">【レア】</span>' : ''}<div style="font-size:12px;font-weight:700;color:#6b4a1a">${PARTS[i].desc}</div>${btn('part:' + i, `${pr} UBで買う`, bonOwn() >= pr)}</div>`; });
   } else if (tab === 'gacha') {
     h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">ガチャで、カスタムパーツ（見た目・音）が手に入るよ（${GACHA_PRICE.parts}UBで1回・何回でも）。引いた回数 ${sh.pulls}回</div>`;
     Object.keys(GACHA_KIND).forEach(k => {
@@ -3735,6 +3795,13 @@ function openShop(tab) {
     const ex = sh.extra | 0, can = ex < SHOP_EXTRA_MAX;
     h += `<div style="${card}">🪙 ボンコインと交換：${SHOP_COIN_COST}UBで1枚（いまの所持 ${save.coins} / ${COIN.max}）${btn('coin', `${SHOP_COIN_COST} UBで1枚もらう`, bonOwn() >= SHOP_COIN_COST && save.coins < COIN.max)}</div>`;
     h += `<div style="${card}">📦 コインの所持上限を増やす：いま ${COIN.max}枚（最大 ${5 + SHOP_EXTRA_MAX}枚）${can ? btn('extra', `${SHOP_EXTRA_COST[ex]} UBで上限+1`, bonOwn() >= SHOP_EXTRA_COST[ex]) : '<div style="margin-top:6px;color:#2e7d4b">最大まで増やしたよ！</div>'}</div>`;
+  } else if (tab === 'fx') {
+    sh.fx = sh.fx || {}; custom.fx3 = custom.fx3 || {};
+    h += '<div style="font-size:12px;color:#8a6a30;margin-bottom:2px">UBで、台のとくべつな演出を開放できるよ。いちど買えばずっと使えて、ON/OFFも切りかえられるのだ（見た目だけで、当たりやすさは変わらぬ）。</div>';
+    SHOP_FX.forEach(f => { const got = sh.fx[f.id], on = custom.fx3[f.id] !== 'off'; h += `<div style="${card}"><b>${f.name}</b>${got ? '　<span style="color:#2e7d4b">【開放ずみ】</span>' : ''}<div style="font-size:12px;font-weight:700;color:#6b4a1a">${f.desc}</div>${got ? btn('fxon:' + f.id, on ? 'いまON（押すとOFF）' : 'いまOFF（押すとON）', true) : btn('fx:' + f.id, `${f.price} UBで開放`, bonOwn() >= f.price)}</div>`; });
+  } else if (tab === 'game') {
+    const gm = shopGame(); 
+    h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">玉をかけずに遊べる、おまけのミニゲームなのだ。結果に応じて、UBがもらえるぞ。1日${GAME_DAILY}回まで。</div><div style="${card}"><b>ストップ・ザ・ボン</b><div style="font-size:12px;font-weight:700;color:#6b4a1a">動くカーソルを、まん中の金色でピタッと止めよう！ タイミングが決まるほど、たくさんもらえるよ。</div><div style="margin-top:4px;font-size:12px">きょうは あと <b>${Math.max(0, GAME_DAILY - gm.n)}</b> 回</div>${btn('gameplay', gm.n >= GAME_DAILY ? 'きょうはおしまい' : 'あそぶ', gm.n < GAME_DAILY)}</div>`;
   } else {
     const order = [0, 1, 2, 3, 4, 5, 6].sort((a, b) => (sh.cheer[b] || 0) - (sh.cheer[a] || 0));
     h += `<div style="font-size:12px;color:#8a6a30;margin-bottom:4px">UBを寄付して、好きなボンを応援しよう。${SHOP_CHEER_UNIT}UB＝${SHOP_CHEER_UNIT}ポイント。1000ポイントごとに称号が上がるよ。</div>`;
@@ -3759,6 +3826,10 @@ function openShop(tab) {
     if (act === 'tool') { const t = TOOLS.find(x => x.id === a); if (!t || ownTool(a) || !shopSpend(t.price)) return; sh.tools = sh.tools || {}; sh.tools[a] = 1; updTools(); }
     else if (act === 'goods') { const g = GOODS.find(x => x.id === a); sh.goods = sh.goods || {}; if (!g || (g.k !== 'snack' && sh.goods[a]) || !shopSpend(g.price)) return; sh.goods[a] = (sh.goods[a] | 0) + 1; toast(`${g.name} をもらったよ！`); saveGame(); updateUI(); renderMenu(); openShop(tab); return; }
     else if (act === 'line') { if (!shopSpend(SHOP_LINE_COST[+c])) return; sh.lines[a + '_' + c] = 1; }
+    else if (act === 'part') { const i = +a; if (G.gacha.cards[i] > 0 || !PARTS[i] || !shopSpend(partPrice(i))) return; G.gacha.cards[i] = 1; G.rec.gacha++; toast(`「${PARTS[i].name}」を手に入れたよ！`); saveGame(); updateUI(); renderMenu(); openShop(tab); return; }
+    else if (act === 'fx') { const f = SHOP_FX.find(x => x.id === a); sh.fx = sh.fx || {}; if (!f || sh.fx[a] || !shopSpend(f.price)) return; sh.fx[a] = 1; custom.fx3 = custom.fx3 || {}; custom.fx3[a] = 'on'; saveCustom(); toast(`「${f.name}」を開放したよ！`); saveGame(); updateUI(); renderMenu(); openShop(tab); return; }
+    else if (act === 'fxon') { custom.fx3 = custom.fx3 || {}; custom.fx3[a] = custom.fx3[a] === 'off' ? 'on' : 'off'; saveCustom(); openShop(tab); return; }
+    else if (act === 'gameplay') { openStopGame(); return; }
     else if (act === 'gacha') {
       if (!shopSpend(GACHA_PRICE[a] || SHOP_GACHA_COST)) return;
       const i = gachaRoll(a);
@@ -4259,8 +4330,8 @@ function openCustom(tab) {
     grp('推しボンの飾り（台の横と液晶の隅に立ち絵。予告でポーズが変わる）', 'oshiDeco', custom.oshiDeco, { on: 'あり', off: 'なし' });
     grp('演出（予告・リーチ・大当たり）のイラスト', 'art', custom.art, { new: 'ポーズいろいろ', old: 'いつもの1枚' });
     const lk = (ttl, attr, items) => { h += `<div class="bgmh">${ttl}</div><div class="bgmsel" style="grid-template-columns:repeat(2,1fr)">` + items.map(([v, n, key]) => { const lock = key && !partOwned(key); return `<button ${lock ? 'disabled' : `data-lk="${attr}:${v}"`} class="${custom[attr] === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 大当たりで入手' : ''}</small></button>`; }).join('') + '</div>'; };
-    lk('玉の飾り（見た目だけ）', 'bfx', [['none', 'なし'], ['halo', 'ひかり玉', 'halo'], ['spark', 'キラキラ玉', 'spark'], ['heart', 'ハート玉', 'heart'], ['rainbow', 'にじ玉', 'rainbow'], ['snow', '雪の玉', 'snow'], ['flame', 'ほのお玉', 'flame']]);
-    lk('盤面のもよう（見た目だけ）', 'bg', [['none', 'なし'], ['dots', '水玉', 'dots'], ['stars', '星空', 'stars'], ['wave', 'なみ', 'wave'], ['check', 'チェック', 'check'], ['rainbow', 'にじ', 'rainbow'], ['hex', 'ハニカム', 'hex']]);
+    lk('玉の飾り（見た目だけ）', 'bfx', [['none', 'なし'], ['halo', 'ひかり玉', 'halo'], ['spark', 'キラキラ玉', 'spark'], ['heart', 'ハート玉', 'heart'], ['rainbow', 'にじ玉', 'rainbow'], ['snow', '雪の玉', 'snow'], ['flame', 'ほのお玉', 'flame'], ['bstar', '星くず玉', 'bstar'], ['bleaf', 'はっぱ玉', 'bleaf']]);
+    lk('盤面のもよう（見た目だけ）', 'bg', [['none', 'なし'], ['dots', '水玉', 'dots'], ['stars', '星空', 'stars'], ['wave', 'なみ', 'wave'], ['check', 'チェック', 'check'], ['rainbow', 'にじ', 'rainbow'], ['hex', 'ハニカム', 'hex'], ['petal', '花もよう', 'petal'], ['diamond', 'ダイヤ', 'diamond']]);
     grp('玉の色', 'ball', custom.ball, BALL_COL, k => dot(`radial-gradient(circle at 35% 30%,${BALL_COL[k][1][0]},${BALL_COL[k][1][2]})`));
     grp('釘の色', 'nail', custom.nail, NAIL_COL, k => dot(`linear-gradient(90deg,${NAIL_COL[k][1][1]},${NAIL_COL[k][1][2]})`));
     grp('ボタンの色', 'ui', custom.ui, UI_THEME, k => dot(UI_THEME[k][1] ? `linear-gradient(${UI_THEME[k][1][0]},${UI_THEME[k][1][1]})` : 'linear-gradient(#fffbe8,#efcf72)'));
