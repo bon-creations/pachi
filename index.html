@@ -506,7 +506,7 @@ function gachaRoll(kind) {
   return ids[ids.length - 1];
 }
 const partOwned = key => Object.keys(PARTS).some(id => PARTS[id].key === key && (G.gacha.cards[id] || 0) > 0);
-let custom = { deco: 'on', frame: 'asia', hold: 'dot', fx: 'none', ykChar: 'auto', yk: {}, lcd: 'none', board: 'none', sym: 'normal', ball: 'silver', nail: 'gold', ui: 'gold', reach: 'none', art: 'new', oshiDeco: 'on', ethcol: 'off', bfx: 'none', bg: 'none', se: 'normal', hall: 'on', heart: 'on', toolsOff: {}, lastTab: 'look' };
+let custom = { deco: 'on', frame: 'asia', hold: 'dot', fx: 'none', ykChar: 'auto', yk: {}, lcd: 'none', board: 'none', sym: 'normal', ball: 'silver', nail: 'gold', ui: 'gold', reach: 'none', art: 'new', oshiDeco: 'on', ethcol: 'off', bfx: 'none', bg: 'none', se: 'normal', hall: 'on', heart: 'on', voice: 'on', sub: 'on', toolsOff: {}, lastTab: 'look' };
 try { const sv = JSON.parse(localStorage.getItem('bonutopia_custom') || 'null'); if (sv && typeof sv === 'object') custom = Object.assign(custom, sv); } catch (e) {}
 if (!['wa', 'india', 'mexico', 'celtic', 'andes', 'asia', 'africa', 'mideast', 'bon0', 'bon1', 'bon2', 'bon3', 'bon4', 'bon5', 'bon6'].includes(custom.frame)) custom.frame = 'asia';   // 以前の枠（金・リボンなど）は、アジア風に切り替え
 const BON_C = [['おこボン', 'oko', '#e0506a', '255,60,70', '#fff0f0'], ['にこボン', 'niko', '#f2b632', '255,200,60', '#fff8e0'], ['ひょえボン', 'hyoe', '#3f8ae0', '60,120,255', '#eef6ff'], ['もぐボン', 'mogu', '#3fa564', '60,200,110', '#effbe8'], ['ねむボン', 'nemu', '#7a5ad0', '170,80,255', '#f3eeff'], ['てれボン', 'tere', '#e0689a', '255,120,170', '#fff0f6']];
@@ -527,7 +527,7 @@ const saveCustom = () => { try { localStorage.setItem('bonutopia_custom', JSON.s
 setTimeout(() => { try { applyUiTheme(); } catch (e) {} }, 0);
 ['lcd', 'board'].forEach(k => { if (['lcd-sakura', 'lcd-star', 'board-pink', 'board-gold'].includes(custom[k])) custom[k] = 'none'; });
 const holdDesign = () => (custom.hold === 'dot' || custom.hold === 'art' || custom.hold === 'artp' || (custom.hold !== 'bon' && partOwned(custom.hold))) ? custom.hold : 'dot';
-const fxDesign = () => (custom.fx !== 'none' && partOwned(custom.fx)) ? custom.fx : 'none';
+const fxDesign = () => (custom.fx !== 'none' && custom.fx !== 'sakura' && partOwned(custom.fx)) ? custom.fx : 'none';   // さくら予告は「花びら前兆」とかぶるので廃止
 const holdBonImg = {};
 function holdBonSprite(i) { if (!holdBonImg[i]) { const im = new Image(); im.src = bonArt(i); holdBonImg[i] = im; } return holdBonImg[i]; }
 function holdPath(c, d, x, y, r) {
@@ -662,8 +662,14 @@ function planDirection(res) {
     const to = REACHES[P.reach].tier === 0 ? 'bon' : 'coop'; P.up = { to, at: P.R + REACHES[P.reach].dur * 0.55 };
     if (P.up.at < P.M - 0.3) { P.M = P.up.at + REACHES[to].dur; P.stops[1] = P.M; } else P.up = null;
   }
-  P.btn = (P.reach && !P.premium && rnd() < 0.55) ? { at: P.R + 0.7, done: false } : null;   // ボタン演出
+  P.btn = (P.reach && !P.premium && rnd() < 0.55) ? { at: P.R + 0.7, done: false, kind: wpick(['push', 'hold', 'gather', 'pick'], k => ({ push: 40, hold: 22, gather: 20, pick: 18 })[k]) } : null;   // ボタン演出
   lcd.btnWait = false; try { hidePush(); } catch (e) {}
+  // 追加の予告（見せ方だけ。当たり外れは変わらない）
+  P.petal = rnd() < (win ? 0.30 : 0.07) ? { col: rnd() < (win ? 0.6 : 0.25) ? 'pink' : 'white' } : null;   // 花びら前兆（ピンクのほうが期待）
+  P.ret = rnd() < (win ? 0.22 : 0.07) ? { back: rnd() < (win ? 0.55 : 0.2), at: 2.4 + rnd() * 0.8, ch: P.chars[1] } : null;   // ボンが通り過ぎる。戻ってくるとチャンス
+  P.flower = (win && P.reach && rnd() < 0.10) ? { at: P.R + 0.4 } : null;   // 花畑（出たら大当たり濃厚）
+  P.shadow = (P.reach && rnd() < 0.35) ? { at: 1.1 } : null;   // 影絵（リーチになる図柄の影）
+  P.erase = rnd() < 0.2 ? { at: 1.5, list: [0, 1, 2, 3, 4, 5, 6].filter(i => i !== P.sym[0] && i !== P.sym[2]).sort(() => rnd() - 0.5).slice(0, 3 + Math.floor(rnd() * 2)) } : null;   // ボンが図柄を消していく
   // 予告
   const cnt = wpick(['0', '1', '2'], k => DIR_CFG.yokokuCount[win ? 'win' : 'lose'][+k]);
   const yk = Object.keys(YOKOKU).filter(k => custom.yk[k] !== false && (!YOKOKU[k].oshi || typeof bgmCfg.sel === 'number')), used = {};   // OFFにした予告は出さない（当たりやすさは変わらない）
@@ -686,12 +692,14 @@ const lcd = { phase: 'idle', t: 0, res: null, plan: null, stopped: [false, false
 const bonus = { v: false, sym: 0, round: 0, count: 0, gained: 0, open: false, timer: 0, gapT: 0, premium: false };
 const inBonus = () => lcd.phase === 'rounds';
 const once = (k, fn) => { if (!lcd.fired[k]) { lcd.fired[k] = 1; fn(); } };
+const modeBgm = () => MODE.k === 'kaku' ? 'fever' : 'winStar';   // 確変＝BONBON FEVER!!／時短＝UTOPIA SPIN☆☆☆
 function startNextSpin() {
   if (lcd.phase !== 'idle' || state.queue.length === 0) return;
   dm('spin'); dm('spin200'); artVar++;
   lcd.res = state.queue.shift(); lcd.plan = planDirection(lcd.res); holdUpgrade();
   lcd.phase = 'spin'; lcd.t = 0; lcd.stopped = [false, false, false]; lcd.fired = {}; lcd.skipped = false; if (hasTool('omen')) omenCheck(); state.spins++; G.life.spins++; sfxSpinStart();
-  if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
+  if (MODE.k === 'kaku' || MODE.k === 'jitan') { lcd.spinBgm = modeBgm(); bgmPlay(lcd.spinBgm); }   // 確変中は「BONBON FEVER!!」、時短中は「UTOPIA SPIN☆☆☆」を、途切れず流す
+  else if ((bgm.name || '').indexOf('spin') === 0 && bgmAudio.el && !bgmAudio.el.paused && !lcd.skipped) { lcd.spinBgm = bgm.name; spinBgmRate(false); }   // 前の変動の曲が流れたままなら、そのまま続ける
   else { lcd.spinBgm = chooseSpinBgm(lcd.plan, lcd.res); bgmPlay(lcd.spinBgm); }   // 通常変動曲：ルーレットが回っている間だけ（1変動1曲）
 }
 /* 保留の色（先読み予告）。抽選結果が決まったあとに「見せ方」だけ決める。当たりの結果は変えない。青＝ふつう／緑＝チャンス／赤＝大チャンス／虹＝激アツ */
@@ -741,15 +749,17 @@ function skipEffect() {
 }
 function updateLCD(dt) {
   const ph = lcd.phase; if (ph === 'idle') return;
-  if (ph === 'spin' && lcd.btnWait) { lcd.btnT += dt; if (lcd.btnT > 3.2 || autoFire || lcd.skipped) pushDone(false); return; }
+  if (ph === 'spin' && lcd.btnWait) { lcd.btnT += dt; if (lcd.btnT > (lcd.btnMax || 3.2) || autoFire || lcd.skipped) pushDone(false); return; }
   lcd.t += (ph === 'spin' || ph === 'result') && supportOn() ? dt * 2.2 : dt; const t = lcd.t;
   if (ph === 'spin') {
     const P = lcd.plan;
     P.yokoku.forEach((y, i) => { if (t >= y.at) once('yk' + i, () => { if (!lcd.skipped) playYokokuSe(y.id); dm('yk'); dexMark('yk', y.id); if (y.id === 'cutin') bonSeen(P.chars[0]); if (y.id === 'niji-appear') bonSeen(6); if (y.id === 'seven-bons') for (let b = 0; b < 7; b++) bonSeen(b); }); });
     if (P.zone && t >= 0.4) once('zone', () => { if (!lcd.skipped) sfxZone(); });
+    if (P.petal && t >= 0.2) once('petal', () => { if (!lcd.skipped && P.petal.col === 'pink') sfxChance(); });
+    if (P.flower && t >= P.flower.at) once('flower', () => { if (!lcd.skipped) { sfxSuper(); bonSay('おはなばたけ！', P.chars[0] | 0); } });
     if (P.hot && t >= P.hotAt) once('hot', () => { if (!lcd.skipped) { sfxHot(); toast('激アツ！！'); } });
     for (let k = 0; k < (P.gi | 0); k++) if (t >= P.giAt[k]) once('gi' + k, () => { if (!lcd.skipped) sfxGi(k); });
-    if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; showPush(); }
+    if (P.btn && !P.btn.done && !lcd.skipped && t >= P.btn.at) { P.btn.done = true; lcd.btnWait = true; lcd.btnT = 0; lcd.btnMax = 3.2; showMini(P.btn.kind); }
     P.stops.forEach((st, i) => { if (!lcd.stopped[i] && t >= st) { lcd.stopped[i] = true; if (!lcd.skipped) sfxReelStop(i, !!lcd.res.win, !!P.reach); } });
     lcd._tk = (lcd._tk || 0) + dt; if (lcd._tk > 0.12 && !lcd.skipped && !lcd.btnWait && !(lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2])) { lcd._tk = 0; sfxRoll(); }
     /* ドキドキ：リーチ中は心音がだんだん速くなる。最後の一瞬は音を止めて「ため」を作る */
@@ -759,11 +769,11 @@ function updateLCD(dt) {
       if (lcd._hb >= 0.95 - 0.55 * q) { lcd._hb = 0; lcd._hbp = 1; if (REACHES[P.reach].tier >= 1 || q > 0.5) sfxHeart(0.6 + 0.5 * q); }
     } else lcd._hb = 0;
     if (P.up && !lcd.skipped && t >= P.up.at) once('reachUp', () => { P.reach = P.up.to; P.R = t; dexMark('rc', P.reach); sfxReachUp(); toast('リーチ発展！！'); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); });
-    if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true)) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); });
+    if (P.reach && !lcd.skipped && t >= P.R) once('reach', () => { dm('reach'); dexMark('rc', P.reach); if (P.reach === 'bon' || P.reach === 'coop') bonSeen(P.chars[0]); if (P.reach === 'niji') bonSeen(6); if (MODE.k === 'normal' && (P.reach === 'special' || P.reach === 'niji' || !spinBgmRate(true))) bgmStop(); sfxReach(); if (P.reach === 'special') bgmPlay('special'); if (P.reach === 'niji') sfxNiji(); bonSay(P.reach === 'niji' ? 'プレミアム！' : 'リーチ！', P.reach === 'niji' ? 6 : P.chars[0]); });
     if (lcd.stopped[0] && lcd.stopped[1] && lcd.stopped[2]) {
-      if (lcd.res.win || (bgm.name || '').indexOf('spin') !== 0) bgmStop();   // ハズレなら曲は止めずに流し続ける（海物語のように、変動のたびに途切れない）
+      if (lcd.res.win || ((bgm.name || '').indexOf('spin') !== 0 && !(MODE.k !== 'normal' && bgm.name === modeBgm()))) bgmStop();   // ハズレなら曲は止めずに流し続ける（海物語のように、変動のたびに途切れない）
       P.sym.forEach(x => { G.dex.symSeen[x] = 1; });
-      if (lcd.res.win) { state.wins++; onWin(lcd.res); dexMark('sp', P.premium ? 'premium' : 'win'); if (P.premium) G.rec.premium++; if (lcd.res.symIdx === SEVEN) dexMark('sp', 'seven'); lcd.phase = 'intro'; lcd.t = 0; lcd.fired = {}; }
+      if (lcd.res.win) { state.wins++; onWin(lcd.res); try { bonSay('大当たり！', P.premium ? 6 : (P.chars[0] | 0)); if (!lcd.skipped && !autoFire) setTimeout(showSelectBonus, 1600); } catch (e) {} dexMark('sp', P.premium ? 'premium' : 'win'); if (P.premium) G.rec.premium++; if (lcd.res.symIdx === SEVEN) dexMark('sp', 'seven'); lcd.phase = 'intro'; lcd.t = 0; lcd.fired = {}; }
       else { onLose(); sfxLose(); lcd.phase = 'result'; lcd.t = 0; }
     }
   } else if (ph === 'result') {
@@ -1019,6 +1029,65 @@ function drawReachScene(c, id, tr, P) {
   }
 }
 
+
+/* 追加の予告・ライブ演出の描画 */
+const silCache = {};
+function silOf(idx) {   // 図柄の影（黒いシルエット）
+  if (!silCache[idx]) { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 78; const g = cv.getContext('2d'); g.textAlign = 'center'; g.textBaseline = 'middle'; drawSym(g, idx, 0, 0, 64, 78); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(10,6,20,.92)'; g.fillRect(0, 0, 64, 78); silCache[idx] = cv; }
+  return silCache[idx];
+}
+function drawExtras(c, P, t, lx, ly, lw, lh) {
+  // 花びら前兆
+  if (P.petal && t > 0.2 && t < 3.4) {
+    const pink = P.petal.col === 'pink', a = Math.min(1, (t - 0.2) / 0.4) * Math.min(1, (3.4 - t) / 0.5);
+    c.save(); c.globalAlpha = 0.9 * a;
+    for (let i = 0; i < 26; i++) {
+      const x = lx + (((i * 53) % 100) / 100) * lw + Math.sin(t * 2 + i) * 14, y = ly + (((t - 0.2) * (46 + (i % 5) * 9) + i * 37) % (lh + 24)) - 12;
+      c.save(); c.translate(x, y); c.rotate(t * 1.5 + i); c.fillStyle = pink ? (i % 3 ? '#ff9ec4' : '#ff6fa6') : '#fff7fb';
+      c.beginPath(); c.ellipse(0, 0, 6, 3.4, 0, 0, 7); c.fill(); c.restore();
+    }
+    c.restore();
+  }
+  // ボンが通り過ぎる（戻ってくるとチャンス）
+  if (P.ret) {
+    const q = (t - P.ret.at) / (P.ret.back ? 3.6 : 1.8);
+    if (q > 0 && q < 1) {
+      let x, flip = false;
+      if (P.ret.back) { const u = q < 0.5 ? q * 2 : (1 - q) * 2; x = lx - 30 + (lw + 60) * u * (q < 0.5 ? 1 : 0.0) + (q < 0.5 ? 0 : (lx + lw + 30) - (lw + 60) * (q - 0.5) * 2 - 0); flip = q >= 0.5; if (q >= 0.5) x = lx + lw + 30 - (lw + 60) * (q - 0.5) * 2; }
+      else { x = lx - 30 + (lw + 60) * q; }
+      drawBonFull(c, P.ret.ch | 0, x, ly + lh - 8 + Math.sin(t * 10) * 3, 60, 1, flip);
+    }
+  }
+  // 影絵（リーチになる図柄の影）
+  if (P.shadow && P.reach && t >= P.shadow.at && t < P.shadow.at + 2.4) {
+    const a = Math.min(1, (t - P.shadow.at) / 0.3) * Math.min(1, (P.shadow.at + 2.4 - t) / 0.3), sw = silOf(P.sym[0]);
+    c.save(); c.globalAlpha = a; [lx + 14, lx + 14 + 148].forEach(bx => c.drawImage(sw, bx, ly + 46, 64, 78)); c.restore();
+  }
+  // 図柄を消していく
+  if (P.erase && MODE.k !== 'kaku' && t >= P.erase.at && t < P.erase.at + 4.2) {
+    const y0 = ly + lh - 56, el = t - P.erase.at; c.save(); c.globalAlpha = Math.min(1, el / 0.3) * Math.min(1, (P.erase.at + 4.2 - t) / 0.4);
+    for (let i = 0; i < 7; i++) {
+      const x = lx + 16 + i * 38, k = P.erase.list.indexOf(i), gone = k >= 0 && el > 0.8 + k * 0.6;
+      c.globalAlpha *= gone ? 0.45 : 1; drawSym(c, i, x, y0, 30, 36); c.globalAlpha = Math.min(1, el / 0.3) * Math.min(1, (P.erase.at + 4.2 - t) / 0.4);
+      if (gone) { c.strokeStyle = '#ff3d6e'; c.lineWidth = 3; c.beginPath(); c.moveTo(x + 2, y0 + 4); c.lineTo(x + 28, y0 + 32); c.moveTo(x + 28, y0 + 4); c.lineTo(x + 2, y0 + 32); c.stroke(); }
+    }
+    c.restore();
+  }
+  // 花畑（大当たり濃厚）
+  if (P.flower && t >= P.flower.at && t < P.flower.at + 2.4) {
+    const el = t - P.flower.at, a = Math.min(1, el / 0.3) * Math.min(1, (P.flower.at + 2.4 - t) / 0.5), cols = ['#ff5a5a', '#ffb02e', '#ffe45a', '#5ad87a', '#5aa8ff', '#b07cff', '#ff7aa8'];
+    c.save(); c.globalAlpha = 0.9 * a;
+    for (let i = 0; i < 34; i++) { const x = lx + (((i * 47) % 100) / 100) * lw, y = ly + lh - 16 - ((i * 29) % 100) / 100 * (lh * 0.7) * Math.min(1, el / 0.8), r = 7 + (i % 4) * 2; c.fillStyle = cols[i % 7]; for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(x + Math.cos(k * 1.2566) * r * 0.7, y + Math.sin(k * 1.2566) * r * 0.7, r * 0.55, 0, 7); c.fill(); } c.fillStyle = '#fff6c8'; c.beginPath(); c.arc(x, y, r * 0.4, 0, 7); c.fill(); }
+    c.restore(); outText(c, 'お花畑！', lx + lw / 2, ly + lh * 0.42, 26, '#fff');
+  }
+}
+function drawLive(c, lx, ly, lw, lh) {   // 確変中：ボンたちのライブステージ（見た目だけ）
+  const now = performance.now(), beat = (now % 500) / 500;
+  c.save(); const g = c.createLinearGradient(0, ly + lh - 64, 0, ly + lh); g.addColorStop(0, 'rgba(255,120,200,0)'); g.addColorStop(1, `rgba(255,120,200,${0.28 + 0.2 * (1 - beat)})`); c.fillStyle = g; c.fillRect(lx, ly + lh - 64, lw, 64);
+  for (let i = 0; i < 4; i++) { const x = lx + 30 + i * 80; c.fillStyle = `rgba(255,255,255,${0.10 + 0.08 * Math.sin(now / 300 + i)})`; c.beginPath(); c.moveTo(x, ly + lh - 64); c.lineTo(x - 22, ly + lh); c.lineTo(x + 22, ly + lh); c.closePath(); c.fill(); }
+  for (let i = 0; i < 7; i++) { const bob = Math.abs(Math.sin(now / 250 + i * 0.7)) * 7; drawSym(c, 7 + i, lx + 14 + i * 38, ly + lh - 54 - bob, 30, 36); }
+  c.restore(); outText(c, 'LIVE', lx + lw - 30, ly + 14, 13, '#ff9ee0');
+}
 /* ---------- 液晶：スピン画面 ---------- */
 const THEMES = [['#1d4030', '#0a1a12'], ['#5a2a1a', '#1a0a06'], ['#3d3115', '#14100a']];   // ボンの博物館風（蔦の緑・テラコッタ・黄土）
 function drawSpinScreen(c) {
@@ -1045,6 +1114,8 @@ function drawSpinScreen(c) {
   if (spin && P && P.hot && !lcd.skipped && t >= P.hotAt && t < P.hotAt + 1.8) { const tr = t - P.hotAt, a = tr < 0.2 ? tr / 0.2 : Math.max(0, 1 - (tr - 1.2) / 0.6); c.save(); c.globalAlpha = 0.35 * Math.min(1, a) * (0.6 + 0.4 * Math.sin(tr * 30)); c.fillStyle = '#ff2a2a'; c.fillRect(lx, ly, lw, lh); c.restore(); c.save(); c.globalAlpha = Math.min(1, a); outText(c, '激アツ！！', lx + lw / 2, ly + lh / 2 - 6 + Math.sin(tr * 25) * 2, 40, '#ffe14d', '#7a0010'); c.restore(); }
   // 予告
   if (spin && P) P.yokoku.forEach(y => { const tr = t - y.at; if (tr >= 0 && tr <= YOKOKU[y.id].dur) { c.save(); drawYokoku(c, y, tr, YOKOKU[y.id].dur, P); c.restore(); { const fx = fxDesign(); if (fx !== 'none') drawYkFx(c, fx, tr, YOKOKU[y.id].dur); }; } });
+  if (spin && P && !lcd.skipped) { try { drawExtras(c, P, t, lx, ly, lw, lh); } catch (e) {} }
+  if (MODE.k === 'kaku' && !(lcd.phase === 'intro' || lcd.phase === 'rounds' || lcd.phase === 'finish')) { try { drawLive(c, lx, ly, lw, lh); } catch (e) {} }
   // 擬似連
   if (spin && P && P.gi && !lcd.skipped) for (let k = 0; k < P.gi; k++) { const tr = t - P.giAt[k]; if (tr >= 0 && tr < 0.8) { c.save(); c.globalAlpha = 0.55 * (1 - tr / 0.8); c.fillStyle = k ? '#ff4d6d' : '#ffd24d'; c.fillRect(lx, ly, lw, lh); c.globalAlpha = 1; c.restore(); } }
   // リーチ
@@ -1476,12 +1547,119 @@ function showPush() {
   }
   pushEl.style.display = 'block'; sfxPushPrompt();
 }
-function hidePush() { if (pushEl) pushEl.style.display = 'none'; }
+function hidePush() { if (pushEl) pushEl.style.display = 'none'; try { miniClose(); } catch (e) {} }
+
+/* ミニゲーム（演出だけ。どう遊んでも、当たり外れは最初から決まっている）：長押しゲージ／全員集合／3つから選ぶ */
+let miniEl = null, miniTimer = 0;
+function miniClose() { clearInterval(miniTimer); if (miniEl) { miniEl.style.display = 'none'; miniEl.innerHTML = ''; } }
+function showMini(kind) {
+  if (!kind || kind === 'push') { showPush(); return; }
+  const P = lcd.plan, bi = P.chars[0] | 0, win = !!lcd.res.win;
+  lcd.btnMax = 5.2;
+  if (!miniEl) {
+    miniEl = document.createElement('div'); miniEl.id = 'miniGame';
+    miniEl.style.cssText = 'position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:70;width:min(86vw,340px);padding:12px 12px 14px;border-radius:18px;background:rgba(30,18,40,.86);border:3px solid #fff;color:#fff;font:900 16px/1.3 "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;text-align:center;box-shadow:0 6px 22px rgba(0,0,0,.5);display:none;user-select:none;-webkit-user-select:none;touch-action:manipulation';
+    miniEl.addEventListener('click', e => e.stopPropagation()); miniEl.addEventListener('pointerdown', e => e.stopPropagation()); document.body.appendChild(miniEl);
+  }
+  miniEl.innerHTML = ''; miniEl.style.display = 'block'; sfxPushPrompt();
+  const mk = (tag, css, html) => { const e = document.createElement(tag); e.style.cssText = css || ''; if (html != null) e.innerHTML = html; return e; };
+  const BTN = 'border:3px solid #fff;border-radius:14px;color:#fff;font:900 16px "Zen Maru Gothic",sans-serif;padding:10px 6px;cursor:pointer;';
+  let ended = false;
+  const fin = () => { if (ended) return; ended = true; clearInterval(miniTimer); setTimeout(() => { if (lcd.btnWait) { miniClose(); pushDone(true); } }, 750); };
+  const good = () => { try { flash = 1; if (win) sfxSuper(); else sfxChance(); } catch (e) {} };
+  if (kind === 'hold') {
+    miniEl.appendChild(mk('div', 'margin-bottom:8px', 'ボタンを 長押し！'));
+    const bar = mk('div', 'height:16px;border-radius:9px;background:#3a2a4a;border:2px solid #fff;overflow:hidden;margin-bottom:10px'), fill = mk('i', 'display:block;height:100%;width:0;background:linear-gradient(90deg,#ffb02e,#ff3d6e)'); bar.appendChild(fill); miniEl.appendChild(bar);
+    const btn = mk('button', BTN + 'width:100%;font-size:20px;background:radial-gradient(circle at 35% 30%,#ffb35a,#ff3d6e 70%)', '長押し！'); btn.type = 'button'; miniEl.appendChild(btn);
+    let v = 0, down = false; bonSay('おして！', bi);
+    btn.addEventListener('pointerdown', e => { down = true; e.preventDefault(); e.stopPropagation(); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, () => { down = false; }));
+    miniTimer = setInterval(() => {
+      if (ended) return; v = down ? v + 0.045 : Math.max(0, v - 0.03); const cap = win ? 1 : 0.9;
+      if (v >= cap) { v = cap; bonSay(win ? 'いっけー！' : 'あっ… あとすこし！', bi); good(); fin(); }
+      fill.style.width = (v * 100) + '%';
+    }, 50);
+  } else if (kind === 'gather') {
+    miniEl.appendChild(mk('div', 'margin-bottom:8px', 'ボンを みんな あつめて！'));
+    const grid = mk('div', 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center'); miniEl.appendChild(grid);
+    const names = ['おこ', 'にこ', 'ひょえ', 'もぐ', 'ねむ', 'てれ', 'にじ'], miss = win ? -1 : Math.floor(Math.random() * 7);
+    let got = 0; bonSay('あつまれー！', bi);
+    [0, 1, 2, 3, 4, 5, 6].sort(() => Math.random() - 0.5).forEach(i => {
+      const b = mk('button', BTN + 'width:68px;background:' + BON_VCOL[i], names[i]); b.type = 'button';
+      b.addEventListener('click', e => {
+        e.stopPropagation(); if (ended || b.dataset.on) return;
+        if (i === miss) { b.style.transform = 'translateX(6px)'; setTimeout(() => { b.style.transform = ''; }, 120); bonSay('ひっこんだ…', i); return; }
+        b.dataset.on = 1; b.style.opacity = '.35'; b.style.transform = 'scale(.8)'; got++; try { sfxPushPrompt(); } catch (x) {}
+        if (got >= (win ? 7 : 6)) { bonSay(win ? 'ぜんいん そろった！' : 'あと1人… いない…', win ? bi : miss); good(); fin(); }
+      });
+      grid.appendChild(b);
+    });
+  } else {   // pick：3つから1つ選ぶ（当たりのときは、どれを選んでも「ボン全員」）
+    miniEl.appendChild(mk('div', 'margin-bottom:8px', 'どれか ひとつ えらんでね！'));
+    const row = mk('div', 'display:flex;gap:8px;justify-content:center'); miniEl.appendChild(row); bonSay('どれかな？', bi);
+    [0, 1, 2].forEach(() => {
+      const b = mk('button', BTN + 'flex:1;height:84px;font-size:30px;background:#6a4a8a', '？'); b.type = 'button';
+      b.addEventListener('click', e => {
+        e.stopPropagation(); if (ended) return; b.disabled = true;
+        b.style.background = win ? '#ff3d6e' : '#555'; b.innerHTML = win ? '<span style="font-size:13px">ボン<br>ぜんいん！</span>' : '<span style="font-size:13px">ざんねん…</span>';
+        bonSay(win ? 'ボン ぜんいん しゅつげん！' : 'ざんねん…', bi); good(); fin();
+      });
+      row.appendChild(b);
+    });
+  }
+}
+/* 大当たりのあとの「ルート選択」風の演出（どちらを選んでも出玉は変わらない。選ばなくても消える） */
+let selEl = null;
+function showSelectBonus() {
+  try {
+    if (!selEl) {
+      selEl = document.createElement('div'); selEl.id = 'selBonus';
+      selEl.style.cssText = 'position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:69;width:min(86vw,320px);padding:12px;border-radius:18px;background:rgba(30,18,40,.88);border:3px solid #ffd24d;color:#fff;font:900 16px/1.35 "Zen Maru Gothic",sans-serif;text-align:center;box-shadow:0 6px 22px rgba(0,0,0,.5);display:none';
+      selEl.addEventListener('click', e => e.stopPropagation()); document.body.appendChild(selEl);
+    }
+    selEl.innerHTML = '<div style="margin-bottom:8px">SELECT BONUS！<br><span style="font-size:11px;font-weight:700;opacity:.8">どちらを選んでも、出玉は同じだよ</span></div>';
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px'; selEl.appendChild(row);
+    [['あんしんルート', '#3fa564'], ['しょうぶルート', '#e0506a']].forEach(([n, c]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = n; b.style.cssText = 'flex:1;padding:12px 4px;border-radius:12px;border:3px solid #fff;color:#fff;font:900 15px "Zen Maru Gothic",sans-serif;background:' + c + ';cursor:pointer';
+      b.addEventListener('click', e => { e.stopPropagation(); bonSay(n === 'あんしんルート' ? 'あんしんで いこう！' : 'しょうぶ だー！', lcd.plan ? lcd.plan.chars[0] | 0 : 0); try { sfxChance(); } catch (x) {} selEl.style.display = 'none'; });
+      row.appendChild(b);
+    });
+    selEl.style.display = 'block'; setTimeout(() => { if (selEl) selEl.style.display = 'none'; }, 4500);
+  } catch (e) {}
+}
 function pushDone(manual) {
   if (!lcd.btnWait) return; lcd.btnWait = false; hidePush();
   if (manual) { sfxPush(); flash = 1; if (lcd.res && lcd.res.win) sfxSuper(); }
 }
 
+/* ボンのボイス（ブラウザの読み上げ）と字幕。ボンが話すときは、ボイスがOFFでも字幕が出る */
+const VOICE = { v: null };
+const BON_VNAME = ['おこボン', 'にこボン', 'ひょえボン', 'もぐボン', 'ねむボン', 'てれボン', 'にじボン'];
+const BON_VCOL = ['#ff5a4d', '#ffb02e', '#5aa8ff', '#8a6a4a', '#7b7bd8', '#ff7aa8', '#b07cff'];
+const VOICE_PROF = [[0.85, 1.15], [1.35, 1.1], [1.1, 1.0], [0.7, 0.9], [0.9, 0.8], [1.5, 1.0], [1.6, 1.2]];   // [声の高さ, 速さ]
+let subEl = null, subTimer = 0;
+function showSub(text, bi) {
+  if (custom.sub === 'off') return;
+  if (!subEl) {
+    subEl = document.createElement('div'); subEl.id = 'bonSub';
+    subEl.style.cssText = 'position:fixed;left:50%;bottom:26%;transform:translateX(-50%);z-index:68;max-width:84vw;padding:8px 16px 9px;border-radius:14px;background:rgba(20,14,8,.82);border:2px solid #fff;color:#fff;font:900 17px/1.35 "Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;text-align:center;pointer-events:none;display:none;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+    document.body.appendChild(subEl);
+  }
+  const bi2 = (bi >= 0 && bi < 7) ? bi : 0;
+  subEl.innerHTML = '<span style="color:' + BON_VCOL[bi2] + ';font-size:12px;display:block;letter-spacing:.05em">' + BON_VNAME[bi2] + '</span>' + text.replace(/[<>&]/g, '');
+  subEl.style.display = 'block'; subEl.style.borderColor = BON_VCOL[bi2];
+  clearTimeout(subTimer); subTimer = setTimeout(() => { if (subEl) subEl.style.display = 'none'; }, 1800 + text.length * 70);
+}
+function bonSay(text, bi) {
+  try { showSub(text, bi); } catch (e) {}
+  try {
+    if (custom.voice === 'off' || snd.mute || typeof speechSynthesis === 'undefined') return;
+    if (!VOICE.v) VOICE.v = (speechSynthesis.getVoices().filter(v => /^ja/i.test(v.lang))[0]) || null;
+    if (!VOICE.v) return;
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[！!？?…。]/g, ' ')); u.voice = VOICE.v; u.lang = 'ja-JP';
+    const pr = VOICE_PROF[(bi >= 0 && bi < 7) ? bi : 0]; u.pitch = pr[0]; u.rate = pr[1]; u.volume = Math.min(1, 0.3 + snd.se); speechSynthesis.speak(u);
+  } catch (e) {}
+}
 function sfxWin() { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, 0.22, 'square', 0.22, 0, i * 0.11)); }
 /* 玉まわりの音（打ち出し・釘・入賞・玉貸しなど）は「玉の音」のつまみで、演出の音とは別に調整できる */
 ['sfxFire', 'sfxNail', 'sfxHit', 'sfxOut', 'sfxDenIn', 'sfxDenOpen', 'sfxDenClose', 'sfxLend', 'sfxAttOpen', 'sfxAttClose', 'sfxHandle', 'sfxCatch', 'sfxJara'].forEach(n => { const f = eval(n); eval(n + ' = function () { const o = snd.ch; snd.ch = "ball"; try { return f.apply(null, arguments); } finally { snd.ch = o; } }'); });
@@ -2494,7 +2672,7 @@ function onWin(res) {   // 当たりが確定して液晶が揃った時点の�
 function onLose() {
   const wasNormal = MODE.k === 'normal';
   if (MODE.k === 'kaku') { MODE.left--; if (MODE.left <= 0) { MODE.k = 'normal'; G.chain = 0; toast('確変が終わったよ。左打ちに戻そう（ハンドルを左へ）'); } }
-  if (MODE.k === 'jitan') { MODE.left--; if (MODE.left <= 0) { MODE.k = 'normal'; G.chain = 0; toast('時短が終わったよ。左打ちに戻そう（ハンドルを左へ）'); } }
+  if (MODE.k === 'jitan') { MODE.left--; if (MODE.left <= 0 && Math.random() < 0.12) { MODE.left = 8; try { bonSay('まだまだ！', 0); toast('「まだまだ！」 時短が8回転のびたよ'); } catch (e) {} } if (MODE.left <= 0) { MODE.k = 'normal'; G.chain = 0; toast('時短が終わったよ。左打ちに戻そう（ハンドルを左へ）'); } }
   if (wasNormal && MODE.k === 'normal') { G.yuu = (G.yuu | 0) + 1; if (G.yuu >= YUU_SPINS) { G.yuu = 0; MODE.k = 'jitan'; MODE.left = JITAN_SPINS; G.rec.jitan++; dexMark('sp', 'jitan'); toast(`遊タイム突入！ 時短${JITAN_SPINS}回転！右打ちで電チューを狙え！`); sfxHot(); setSide('R'); } }
 }
 function endBonusMode() {   // 10ラウンド終了：図柄で確変／時短へ
@@ -3654,6 +3832,8 @@ const BGM_DEFAULT_URL = { spin2: '', spin3: '', themes: ['', '', '', '', '', '',
 BGM_DEFAULT_URL.spin3 = 'spin3.mp3';   // 通常変動曲 もう1曲（UTOPIA SPIN!!! 別バージョン）
 BGM_DEFAULT_URL.star = 'star.m4a';   // 大当たり曲「UTOPIA SPIN☆☆☆」
 BGM_DEFAULT_URL.hyoe = 'hyoe.mp3';   // ひょえボンのキャラソン「ちいさな迷子」（大当たりテーマに選べる。推しボンをひょえにしているときは必ずこれ）
+BGM_DEFAULT_URL.bon = 'theme_bon.mp3';   // ボン全体のテーマ曲（共通の大当たりテーマ）
+BGM_DEFAULT_URL.themes = ['theme_oko.m4a', 'theme_niko.m4a', 'theme_hyoe.m4a', 'theme_mogu.m4a', 'theme_nemu.m4a', 'theme_tere.m4a', 'theme_niji.mp3'];   // 各ボンのテーマ曲（おこ・にこ・ひょえ・もぐ・ねむ・てれ・にじ）
 BGM_DEFAULT_URL.world = 'bontify.mp3';   // Bontifyを開いている間の曲
 /* にじボンの曲「UTOPIA PRISM」（今は大当たりテーマ用。Bontifyの曲は WORLD PRISM に変更） */
 (function () {
@@ -3684,8 +3864,8 @@ Object.assign(BGMS, {
 /* ---------- 保存（曲・画像はIndexedDB、選択はlocalStorage） ---------- */
 const MEDIA = { db: null, urls: {}, ready: false };
 const BGMCFG_KEY = 'bonutopia_bgm';
-let bgmCfg = { sel: 'auto', spin: 'one', win: 'star' };   // sel＝大当たりテーマ（'auto'／0〜6）、spin＝通常変動曲の再生方式（'one'＝①固定／'two'＝②固定／'link'＝期待度連動）。二つは独立   // 'auto'＝当たった図柄のボン、0〜6＝そのボンに固定
-try { const j = JSON.parse(localStorage.getItem(BGMCFG_KEY) || 'null'); if (j) { if (j.sel === 'auto' || (j.sel >= 0 && j.sel <= 6)) bgmCfg.sel = j.sel; if (j.spin === 'one' || j.spin === 'two' || j.spin === 'link') bgmCfg.spin = j.spin; if (j.win === 'fever' || j.win === 'star' || j.win === 'hyoe') bgmCfg.win = j.win; } } catch (e) {}
+let bgmCfg = { sel: 'auto', spin: 'one', win: 'bon' };   // sel＝大当たりテーマ（'auto'／0〜6）、spin＝通常変動曲の再生方式（'one'＝①固定／'two'＝②固定／'link'＝期待度連動）。二つは独立   // 'auto'＝当たった図柄のボン、0〜6＝そのボンに固定
+try { const j = JSON.parse(localStorage.getItem(BGMCFG_KEY) || 'null'); if (j) { if (j.sel === 'auto' || (j.sel >= 0 && j.sel <= 6)) bgmCfg.sel = j.sel; if (j.spin === 'one' || j.spin === 'two' || j.spin === 'link') bgmCfg.spin = j.spin; if (j.win === 'fever' || j.win === 'star' || j.win === 'hyoe' || j.win === 'bon') bgmCfg.win = j.win; } } catch (e) {}
 const saveBgmCfg = () => { try { localStorage.setItem(BGMCFG_KEY, JSON.stringify({ sel: bgmCfg.sel, spin: bgmCfg.spin, win: bgmCfg.win })); } catch (e) {} };
 function mediaOpen(cb) {
   try {
@@ -3735,7 +3915,7 @@ function bgmWAStart(name, url, rate) {
 const bgmEls = {}; let bgmBlocked = false;
 /* 最初のタップで曲の要素を“解錠”しておく（スマホでは、タップなしで作った音は鳴らないことがある）。ブロックされていた曲は次のタップで鳴らし直す */
 function bgmUnlock() {
-  ['spin2', 'spin3', 'fever', 'prism', 'winPrism', 'winStar', 'winHyoe'].forEach(n => {
+  ['spin2', 'spin3', 'fever', 'prism', 'winPrism', 'winStar', 'winBon'].concat(typeof bgmCfg.sel === 'number' && bgmCfg.sel >= 0 && bgmCfg.sel <= 6 ? ['theme:' + bgmCfg.sel] : []).forEach(n => {
     const u = bgmCustomUrl(n); if (!u) return;
     let a = bgmEls[n]; if (!a || a.dataset.u !== u) { a = new Audio(u); a.dataset.u = u; a.preload = 'auto'; a.loop = true; bgmEls[n] = a; }
     if (a === bgmAudio.el || !a.paused) return;
@@ -3749,6 +3929,7 @@ function bgmCustomUrl(name) {
   if (name === 'fever') return BGM_DEFAULT_URL.fever || '';
   if (name === 'prism') return BGM_DEFAULT_URL.world || BGM_DEFAULT_URL.prism || '';   // Bontifyの曲
   if (name === 'winPrism') return BGM_DEFAULT_URL.prism || '';
+  if (name === 'winBon') return BGM_DEFAULT_URL.bon || '';
   if (name === 'winStar') return BGM_DEFAULT_URL.star || '';
   if (name === 'winHyoe') return BGM_DEFAULT_URL.hyoe || '';
   const k = bgmKeyOf(name); if (!k) return '';
@@ -3792,6 +3973,7 @@ function bgmPlay(name) {
       a.loop = true; a.volume = snd.mute ? 0 : Math.min(1, snd.bgm); a.muted = false; try { a.currentTime = 0; } catch (e) {}
       a.preservesPitch = true; a.mozPreservesPitch = true; a.webkitPreservesPitch = true; a.playbackRate = 1;
       if (name.indexOf('spin') === 0 && typeof supportOn === 'function' && supportOn()) { a.playbackRate = SPIN_FAST_RATE; }   // 時短中は変動が速いので、曲も速く（キーは原曲のまま）
+      if (name === 'theme:2' || name === 'theme:4' || name === 'theme:5') a.playbackRate = THEME_FAST;   // ひょえ・ねむ・てれのテーマは1.25倍速（キーは原曲のまま）
       if (name === 'winPrism') { a.preservesPitch = false; a.mozPreservesPitch = false; a.webkitPreservesPitch = false; a.playbackRate = WIN_RATE; }
       const p = a.play(); if (p && p.catch) p.catch(err => { if (err && err.name === 'NotAllowedError') bgmBlocked = true; else if (bgm.name === name && !bgmWA) { bgmAudio.el = null; bgmProc(name); } });   // 曲ファイルが読めない（置き忘れなど）なら内蔵曲に
       a.onerror = () => { if (bgm.name === name && bgmAudio.el === a && !bgmWA) { bgmAudio.el = null; bgmProc(name); } };   // ブロックされたら、次のタップで鳴らし直す
@@ -3823,9 +4005,16 @@ function bonusTheme() {
   if (typeof s === 'number' && s >= 7 && s <= 13) return s - 7;
   return (typeof s === 'number' ? s : 0) % 7;
 }
-const WIN_BGM = { prism: 'winPrism', fever: 'fever', star: 'winStar', hyoe: 'winHyoe' };
+const WIN_BGM = { bon: 'winBon', prism: 'winPrism', fever: 'fever', star: 'winStar', hyoe: 'winHyoe' };
+const THEME_FAST = 1.25;
 const WIN_RATE = 1.12;   // 大当たり用に PRISM SPIN／UTOPIA SPIN!!! を高く速くする倍率（約+2半音）
-const themeName = () => bgmCfg.sel === 2 ? 'winHyoe' : (WIN_BGM[bgmCfg.win] || 'fever');   // 共通の大当たりテーマ。各キャラのテーマは実装準備中のため、まだ使わない（キャラ表示は当たった図柄のボン）
+const themeName = () => {   // 大当たりテーマ：推しボンを選んでいればその子の曲／おまかせなら当たった図柄のボンの曲／ボン以外の図柄なら共通のテーマ
+  const sel = bgmCfg.sel;
+  if (typeof sel === 'number' && sel >= 0 && sel <= 6) return 'theme:' + sel;
+  const si = lcd.res && lcd.res.win ? lcd.res.symIdx : -1;
+  if (si >= 7 && si <= 13) return 'theme:' + (si - 7);
+  return WIN_BGM[bgmCfg.win] || 'fever';
+};   // 共通の大当たりテーマ。各キャラのテーマは実装準備中のため、まだ使わない（キャラ表示は当たった図柄のボン）
 
 /* ---------- キャラ画像（等身／デフォルメ。差し替え可、未登録でも動く） ---------- */
 const imgCache = {};
@@ -3878,7 +4067,7 @@ function shrinkImage(file, cb) {
 }
 function bgmBody() {
   let h = '<div class="bgmh">大当たりのテーマ曲（押すと試聴できるよ）</div><div class="bgmsel">';
-  [['star', 'UTOPIA SPIN☆☆☆', '大当たりの新テーマ'], ['fever', 'BONBON FEVER!!', '共通の大当たりテーマ'], ['hyoe', 'ちいさな迷子', 'ひょえボンのキャラソン（推しがひょえなら必ずこれ）']].forEach(([k, n, sm]) => { h += `<button data-win="${k}" class="${bgmCfg.win === k ? 'on' : ''}">${n}<small>${sm}</small></button>`; });
+  [['bon', 'ボンのテーマ', 'ボン全体のテーマ曲（共通の大当たりテーマ）'], ['star', 'UTOPIA SPIN☆☆☆', '大当たりの新テーマ'], ['fever', 'BONBON FEVER!!', '共通の大当たりテーマ'], ['hyoe', 'ちいさな迷子', 'ひょえボンのキャラソン']].forEach(([k, n, sm]) => { h += `<button data-win="${k}" class="${bgmCfg.win === k ? 'on' : ''}">${n}<small>${sm}</small></button>`; });
   h += '</div><div class="bgmh">通常変動曲</div><div style="font-size:12px;color:#6b4a1a">ルーレットが回っている間は「UTOPIA SPIN!!!」か「UTOPIA TONIGHT」が流れるよ（期待度が高いほど「SPIN!!!」）。</div>';
   h += `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr);margin-top:6px">${[['link', '期待度で変わる', ''], ['two', 'SPIN!!!', 'だけ'], ['one', 'TONIGHT', 'だけ']].map(([k, n, sm]) => `<button data-spin="${k}" class="${bgmCfg.spin === k ? 'on' : ''}">${n}${sm ? '<small>' + sm + '</small>' : ''}</button>`).join('')}</div>`;
   return h;
@@ -3902,7 +4091,7 @@ function openCustom(tab) {
     const fd = fxDesign();
     h += '<div class="bgmh">予告のエフェクト（予告のときに重なる見た目）</div><div class="bgmsel">';
     h += opt('fx', 'none', fd === 'none', 'なし', '', false);
-    Object.keys(PARTS).filter(id => PARTS[id].kind === 'fx').forEach(id => { const p = PARTS[id]; h += opt('fx', p.key, fd === p.key, p.name, '', !partOwned(p.key), partOwned(p.key) ? fxPreview(p.key) : ''); });
+    Object.keys(PARTS).filter(id => PARTS[id].kind === 'fx' && PARTS[id].key !== 'sakura').forEach(id => { const p = PARTS[id]; h += opt('fx', p.key, fd === p.key, p.name, '', !partOwned(p.key), partOwned(p.key) ? fxPreview(p.key) : ''); });
     h += '</div><div class="bgmh">予告に出るボンちゃん（図鑑で解放したキャラだけ選べるよ）</div><div class="bgmsel" style="grid-template-columns:repeat(2,1fr)">';
     h += opt('ykc', 'auto', custom.ykChar === 'auto', 'おまかせ', 'ランダム', false);
     for (let i = 0; i < 7; i++) h += opt('ykc', i, custom.ykChar === i, SYMBOL_NAMES[i], '', !bonOpen(i));
@@ -3932,7 +4121,7 @@ function openCustom(tab) {
     h += '<div class="bgmh">効果音のセット（音の質感だけ変わるよ）</div><div class="bgmsel" style="grid-template-columns:repeat(1,1fr)">';
     [['normal', 'ふつう', ''], ['chime', 'チャイム音セット', 'chime'], ['bell', 'ベル音セット', 'bell'], ['wood', '木の音セット', 'wood'], ['8bit', '8bitサウンド', '8bit']].forEach(([v, n, key]) => { const lock = key && !partOwned(key); h += `<button ${lock ? 'disabled' : `data-se="${v}"`} class="${custom.se === v && !lock ? 'on' : ''}" style="${lock ? 'opacity:.45;' : ''}">${n}<small>${lock ? '🔒 ガチャで入手' : '押すと試し聴き'}</small></button>`; });
     h += '</div><div class="bgmh">雰囲気の音</div><div class="bgmsel">';
-    h += `<button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
+    h += `<button data-tg="voice" class="${custom.voice !== 'off' ? 'on' : ''}">ボンのボイス<small>${custom.voice !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="sub" class="${custom.sub !== 'off' ? 'on' : ''}">字幕<small>${custom.sub !== 'off' ? 'ON' : 'OFF'}</small></button><button data-tg="heart" class="${custom.heart !== 'off' ? 'on' : ''}">リーチの鼓動<small>${custom.heart !== 'off' ? 'ON' : 'OFF'}</small></button>`;
     h += '</div><div style="font-size:11px;color:#8a6a30;margin-top:6px;line-height:1.5">音量そのものは、設定の「音量」で、効果音・玉ごとに変えられるよ。</div>';
   } else if (tab === 'tool') {
     const own = TOOLS.filter(t => ownTool(t.id));
@@ -4274,7 +4463,7 @@ function frame(now) {
   dt *= simMul;
   if ((hall.tick = (hall.tick + 1) % 20) === 0) { try { hallUpdate(now); updTools(); } catch (e) {} }
   /* 待機中（玉を打たず、変動も大当たりもない）が30秒続いたら、通常変動曲を止める */
-  if (lcd.phase === 'idle' && !(firing || autoFire) && state.queue.length === 0) { idleBgmT = (idleBgmT || 0) + dt; if (idleBgmT > 30 && (bgm.name || '').indexOf('spin') === 0) { bgmStop(); idleBgmT = 0; } } else idleBgmT = 0;
+  if (lcd.phase === 'idle' && !(firing || autoFire) && state.queue.length === 0) { idleBgmT = (idleBgmT || 0) + dt; if (idleBgmT > 30 && ((bgm.name || '').indexOf('spin') === 0 || bgm.name === 'fever' || bgm.name === 'winStar')) { bgmStop(); idleBgmT = 0; } } else idleBgmT = 0;
   if (playing && (firing || autoFire)) {
     fireTimer += dt;
     while (fireTimer >= RATES[save.rate].interval) { fireTimer -= RATES[save.rate].interval; if (!fireBall()) { fireTimer = 0; break; } }
