@@ -2732,6 +2732,7 @@ function grantWinPart() {   // 大当たりのたびに、まだ持っていな�
   G.gacha.cards[pick] = 1; G.rec.gacha++; return pick;
 }
 function onWin(res) {   // 当たりが確定して液晶が揃った時点の記録
+  winPick = null;   // 「ランダム」設定のとき、大当たりごとに曲を引き直す
   G.life.wins++; G.yuu = 0;
   const hidWas = (MODE.k === 'normal' && MODE.hid > 0) ? (MODE.hb ? 'back' : 'senpuku') : '';
   MODE.hid = 0; MODE.hb = false;
@@ -4049,6 +4050,7 @@ const BGM_DEFAULT_URL = { spin2: '', spin3: '', themes: ['', '', '', '', '', '',
 })();
 BGM_DEFAULT_URL.spin3 = 'spin3.mp3';   // 通常変動曲 もう1曲（UTOPIA SPIN!!! 別バージョン）
 BGM_DEFAULT_URL.star = 'star.m4a';   // 大当たり曲「UTOPIA SPIN☆☆☆」
+BGM_DEFAULT_URL.oko = 'oko.mp3';   // おこボンのキャラソン「アタシはアタシ」（大当たりテーマに選べる。ひょえの「ちいさな迷子」と同じ扱い）
 BGM_DEFAULT_URL.hyoe = 'hyoe.mp3';   // ひょえボンのキャラソン「ちいさな迷子」（大当たりテーマに選べる。推しボンをひょえにしているときは必ずこれ）
 BGM_DEFAULT_URL.bon = 'theme_bon.mp3';   // ボン全体のテーマ曲（共通の大当たりテーマ）
 BGM_DEFAULT_URL.themes = ['theme_oko.m4a', 'theme_niko.m4a', 'theme_hyoe.m4a', 'theme_mogu.m4a', 'theme_nemu.m4a', 'theme_tere.m4a', 'theme_niji.mp3'];   // 各ボンのテーマ曲（おこ・にこ・ひょえ・もぐ・ねむ・てれ・にじ）
@@ -4083,7 +4085,7 @@ Object.assign(BGMS, {
 const MEDIA = { db: null, urls: {}, ready: false };
 const BGMCFG_KEY = 'bonutopia_bgm';
 let bgmCfg = { sel: 'auto', spin: 'one', win: 'bon' };   // sel＝大当たりテーマ（'auto'／0〜6）、spin＝通常変動曲の再生方式（'one'＝①固定／'two'＝②固定／'link'＝期待度連動）。二つは独立   // 'auto'＝当たった図柄のボン、0〜6＝そのボンに固定
-try { const j = JSON.parse(localStorage.getItem(BGMCFG_KEY) || 'null'); if (j) { if (j.sel === 'auto' || (j.sel >= 0 && j.sel <= 6)) bgmCfg.sel = j.sel; if (j.spin === 'one' || j.spin === 'two' || j.spin === 'link') bgmCfg.spin = j.spin; if (j.win === 'fever' || j.win === 'star' || j.win === 'hyoe' || j.win === 'bon') bgmCfg.win = j.win; } } catch (e) {}
+try { const j = JSON.parse(localStorage.getItem(BGMCFG_KEY) || 'null'); if (j) { if (j.sel === 'auto' || (j.sel >= 0 && j.sel <= 6)) bgmCfg.sel = j.sel; if (j.spin === 'one' || j.spin === 'two' || j.spin === 'link') bgmCfg.spin = j.spin; if (j.win === 'fever' || j.win === 'star' || j.win === 'hyoe' || j.win === 'oko' || j.win === 'random' || j.win === 'bon') bgmCfg.win = j.win; } } catch (e) {}
 const saveBgmCfg = () => { try { localStorage.setItem(BGMCFG_KEY, JSON.stringify({ sel: bgmCfg.sel, spin: bgmCfg.spin, win: bgmCfg.win })); } catch (e) {} };
 function mediaOpen(cb) {
   try {
@@ -4133,7 +4135,7 @@ function bgmWAStart(name, url, rate) {
 const bgmEls = {}; let bgmBlocked = false;
 /* 最初のタップで曲の要素を“解錠”しておく（スマホでは、タップなしで作った音は鳴らないことがある）。ブロックされていた曲は次のタップで鳴らし直す */
 function bgmUnlock() {
-  ['spin2', 'spin3', 'fever', 'prism', 'winPrism', 'winStar', 'winBon'].concat(typeof bgmCfg.sel === 'number' && bgmCfg.sel >= 0 && bgmCfg.sel <= 6 ? ['theme:' + bgmCfg.sel] : []).forEach(n => {
+  ['spin2', 'spin3', 'fever', 'prism', 'winPrism', 'winStar', 'winBon', 'winHyoe', 'winOko'].concat(typeof bgmCfg.sel === 'number' && bgmCfg.sel >= 0 && bgmCfg.sel <= 6 ? ['theme:' + bgmCfg.sel] : []).forEach(n => {
     const u = bgmCustomUrl(n); if (!u) return;
     let a = bgmEls[n]; if (!a || a.dataset.u !== u) { a = new Audio(u); a.dataset.u = u; a.preload = 'auto'; a.loop = true; bgmEls[n] = a; }
     if (a === bgmAudio.el || !a.paused || a._ul || bgmWA || (bgmAudio.el && !bgmAudio.el.paused)) return;   // 解錠は1曲につき1回だけ。曲が流れている間は他の要素にさわらない（タップのたびに音が途切れる・急に鳴るのを防ぐ）
@@ -4150,6 +4152,7 @@ function bgmCustomUrl(name) {
   if (name === 'winBon') return BGM_DEFAULT_URL.bon || '';
   if (name === 'winStar') return BGM_DEFAULT_URL.star || '';
   if (name === 'winHyoe') return BGM_DEFAULT_URL.hyoe || '';
+  if (name === 'winOko') return BGM_DEFAULT_URL.oko || '';
   const k = bgmKeyOf(name); if (!k) return '';
   if (MEDIA.urls[k]) return MEDIA.urls[k];
   return name.indexOf('spin') === 0 ? (BGM_DEFAULT_URL[name] || '') : (BGM_DEFAULT_URL.themes[+name.slice(6)] || '');
@@ -4224,7 +4227,9 @@ function bonusTheme() {
   if (typeof s === 'number' && s >= 7 && s <= 13) return s - 7;
   return (typeof s === 'number' ? s : 0) % 7;
 }
-const WIN_BGM = { bon: 'winBon', prism: 'winPrism', fever: 'fever', star: 'winStar', hyoe: 'winHyoe' };
+const WIN_BGM = { bon: 'winBon', prism: 'winPrism', fever: 'fever', star: 'winStar', hyoe: 'winHyoe', oko: 'winOko' };
+let winPick = null;   // ランダム設定：この大当たりで選ばれた曲のキー（大当たり中は同じ曲を流し続ける）
+const WIN_RAND = ['bon', 'star', 'fever', 'hyoe', 'oko'];
 const THEME_FAST = 1.25;
 const WIN_RATE = 1.12;   // 大当たり用に PRISM SPIN／UTOPIA SPIN!!! を高く速くする倍率（約+2半音）
 const themeName = () => {   // 大当たりテーマ：推しボンを選んでいればその子の曲／おまかせなら当たった図柄のボンの曲／ボン以外の図柄なら共通のテーマ
@@ -4232,6 +4237,7 @@ const themeName = () => {   // 大当たりテーマ：推しボンを選んで�
   if (typeof sel === 'number' && sel >= 0 && sel <= 6) return 'theme:' + sel;
   const si = lcd.res && lcd.res.win ? lcd.res.symIdx : -1;
   if (si >= 7 && si <= 13) return 'theme:' + (si - 7);
+  if (bgmCfg.win === 'random') { if (!winPick) winPick = WIN_RAND[Math.floor(Math.random() * WIN_RAND.length)]; return WIN_BGM[winPick]; }
   return WIN_BGM[bgmCfg.win] || 'fever';
 };   // 共通の大当たりテーマ。各キャラのテーマは実装準備中のため、まだ使わない（キャラ表示は当たった図柄のボン）
 
@@ -4286,7 +4292,7 @@ function shrinkImage(file, cb) {
 }
 function bgmBody() {
   let h = '<div class="bgmh">大当たりのテーマ曲（押すと試聴できるよ）</div><div class="bgmsel">';
-  [['bon', 'ボンのテーマ', 'ボン全体のテーマ曲（共通の大当たりテーマ）'], ['star', 'UTOPIA SPIN☆☆☆', '大当たりの新テーマ'], ['fever', 'BONBON FEVER!!', '共通の大当たりテーマ'], ['hyoe', 'ちいさな迷子', 'ひょえボンのキャラソン']].forEach(([k, n, sm]) => { h += `<button data-win="${k}" class="${bgmCfg.win === k ? 'on' : ''}">${n}<small>${sm}</small></button>`; });
+  [['bon', 'ボンのテーマ', 'ボン全体のテーマ曲（共通の大当たりテーマ）'], ['star', 'UTOPIA SPIN☆☆☆', '大当たりの新テーマ'], ['fever', 'BONBON FEVER!!', '共通の大当たりテーマ'], ['hyoe', 'ちいさな迷子', 'ひょえボンのキャラソン'], ['oko', 'アタシはアタシ', 'おこボンのキャラソン'], ['random', 'ランダム', '大当たりのたびに、5曲からランダムで流れる']].forEach(([k, n, sm]) => { h += `<button data-win="${k}" class="${bgmCfg.win === k ? 'on' : ''}">${n}<small>${sm}</small></button>`; });
   h += '</div><div class="bgmh">通常変動曲</div><div style="font-size:12px;color:#6b4a1a">ルーレットが回っている間は「UTOPIA SPIN!!!」か「UTOPIA TONIGHT」が流れるよ（期待度が高いほど「SPIN!!!」）。</div>';
   h += `<div class="bgmsel" style="grid-template-columns:repeat(3,1fr);margin-top:6px">${[['link', '期待度で変わる', ''], ['two', 'SPIN!!!', 'だけ'], ['one', 'TONIGHT', 'だけ']].map(([k, n, sm]) => `<button data-spin="${k}" class="${bgmCfg.spin === k ? 'on' : ''}">${n}${sm ? '<small>' + sm + '</small>' : ''}</button>`).join('')}</div>`;
   return h;
@@ -4377,14 +4383,14 @@ function openCustom(tab) {
   box.querySelectorAll('[data-ykc]').forEach(b => b.onclick = () => { custom.ykChar = b.dataset.ykc === 'auto' ? 'auto' : +b.dataset.ykc; saveCustom(); again(); });
   box.querySelectorAll('[data-yk]').forEach(b => b.onclick = () => { const k = b.dataset.yk; custom.yk[k] = custom.yk[k] === false; saveCustom(); again(); });
   const ya = $('ykAll'); if (ya) ya.onclick = () => { custom.yk = {}; saveCustom(); again(); };
-  box.querySelectorAll('[data-win]').forEach(b => b.onclick = () => { bgmCfg.win = b.dataset.win; saveBgmCfg(); again(); bgmPreviewing = true; AC(); bgmPlay(themeName()); });
+  box.querySelectorAll('[data-win]').forEach(b => b.onclick = () => { bgmCfg.win = b.dataset.win; winPick = null; saveBgmCfg(); again(); bgmPreviewing = true; AC(); bgmPlay(themeName()); });
   box.querySelectorAll('[data-spin]').forEach(b => b.onclick = () => { bgmCfg.spin = b.dataset.spin; saveBgmCfg(); again(); });
 }
 (function () {
   const st = document.createElement('style');
   st.textContent = `.bgmh{font-size:12px;font-weight:800;margin:12px 0 6px;color:#6b4a1a}
   .bgmsel{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
-  .bgmsel button[data-win="hyoe"]{grid-column:1/-1}
+  .bgmsel button[data-win="hyoe"],.bgmsel button[data-win="oko"],.bgmsel button[data-win="random"]{grid-column:1/-1}
   .bgmsel button{min-height:38px;font-size:13px;border-radius:10px;border:2px solid #d9c9a3;background:#fff;color:#3a2a10;font-weight:800}
   .bgmsel button small{display:block;font-size:10px;font-weight:600}
   .bgmsel button.on{background:#ffd86b;border-color:#e8a200}
